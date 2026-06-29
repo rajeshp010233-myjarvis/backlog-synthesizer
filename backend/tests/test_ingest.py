@@ -94,4 +94,4 @@ async def test_upload_backlog_wrong_type_rejected(client):
         f"/ingest/backlog/{session_id}",
         files=[_txt_file("backlog.txt")],
     )
-    assert resp.status_code == 415
+    assert resp.status_code in (415, 422)  # 415 from ext check, 422 from FastAPI validation

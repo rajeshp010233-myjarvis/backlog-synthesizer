@@ -73,8 +73,8 @@ async def test_results_available_after_pipeline(client, fake_redis):
     session_id = await seed_session(client, fake_redis, transcripts=SAMPLE_TRANSCRIPTS)
     ttl = 7 * 24 * 3600
     result = {**SAMPLE_RESULT, "session_id": session_id}
-    fake_redis.set(f"session:{session_id}:result".encode(), json.dumps(result).encode(), ex=ttl)
-    fake_redis.set(f"session:{session_id}:status".encode(), b"done", ex=ttl)
+    await fake_redis.set(f"session:{session_id}:result".encode(), json.dumps(result).encode(), ex=ttl)
+    await fake_redis.set(f"session:{session_id}:status".encode(), b"done", ex=ttl)
 
     resp = await client.get(f"/results/{session_id}")
     assert resp.status_code == 200
@@ -89,8 +89,8 @@ async def test_results_excludes_prompt_traces(client, fake_redis):
     session_id = await seed_session(client, fake_redis, transcripts=SAMPLE_TRANSCRIPTS)
     ttl = 7 * 24 * 3600
     result = {**SAMPLE_RESULT, "session_id": session_id, "prompt_traces": ["SECRET"]}
-    fake_redis.set(f"session:{session_id}:result".encode(), json.dumps(result).encode(), ex=ttl)
-    fake_redis.set(f"session:{session_id}:status".encode(), b"done", ex=ttl)
+    await fake_redis.set(f"session:{session_id}:result".encode(), json.dumps(result).encode(), ex=ttl)
+    await fake_redis.set(f"session:{session_id}:status".encode(), b"done", ex=ttl)
 
     resp = await client.get(f"/results/{session_id}")
     assert "prompt_traces" not in resp.json()
@@ -101,8 +101,8 @@ async def test_results_export_json(client, fake_redis):
     session_id = await seed_session(client, fake_redis, transcripts=SAMPLE_TRANSCRIPTS)
     ttl = 7 * 24 * 3600
     result = {**SAMPLE_RESULT, "session_id": session_id}
-    fake_redis.set(f"session:{session_id}:result".encode(), json.dumps(result).encode(), ex=ttl)
-    fake_redis.set(f"session:{session_id}:status".encode(), b"done", ex=ttl)
+    await fake_redis.set(f"session:{session_id}:result".encode(), json.dumps(result).encode(), ex=ttl)
+    await fake_redis.set(f"session:{session_id}:status".encode(), b"done", ex=ttl)
 
     resp = await client.get(f"/results/{session_id}/export?format=json")
     assert resp.status_code == 200
@@ -114,8 +114,8 @@ async def test_results_export_markdown(client, fake_redis):
     session_id = await seed_session(client, fake_redis, transcripts=SAMPLE_TRANSCRIPTS)
     ttl = 7 * 24 * 3600
     result = {**SAMPLE_RESULT, "session_id": session_id}
-    fake_redis.set(f"session:{session_id}:result".encode(), json.dumps(result).encode(), ex=ttl)
-    fake_redis.set(f"session:{session_id}:status".encode(), b"done", ex=ttl)
+    await fake_redis.set(f"session:{session_id}:result".encode(), json.dumps(result).encode(), ex=ttl)
+    await fake_redis.set(f"session:{session_id}:status".encode(), b"done", ex=ttl)
 
     resp = await client.get(f"/results/{session_id}/export?format=markdown")
     assert resp.status_code == 200
