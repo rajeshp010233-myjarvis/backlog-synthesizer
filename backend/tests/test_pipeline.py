@@ -1,7 +1,7 @@
 """Tests for POST /pipeline/run and GET /pipeline/stream."""
 import json
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from .conftest import seed_session
 
 SAMPLE_TRANSCRIPTS = ["User: We need a login page. PM: Agreed, high priority."]

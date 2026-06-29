@@ -1,5 +1,4 @@
 """Tests for the agent harness — audit chain, retry, and validation logic."""
-import pytest
 from app.agents.harness import agent_harness, verify_audit_chain
 
 

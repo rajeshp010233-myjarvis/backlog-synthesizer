@@ -6,9 +6,8 @@ Stubs langgraph/chromadb/LLM SDKs so CI doesn't need those heavy packages.
 import json
 import sys
 from contextlib import asynccontextmanager
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 

@@ -6,7 +6,6 @@ from app.models.state import BacklogState
 from app.tools.document_parser import hash_content
 from app.tools.agent_tools import STORY_WRITER_TOOLS, make_story_writer_executor
 from app.config import get_settings
-from app.providers import complete_for_agent
 from app.providers.factory import plan_for_agent, complete_with_tools_for_agent
 from app.utils.json_utils import extract_json
 from app.agents.harness import agent_harness

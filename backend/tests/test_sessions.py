@@ -1,7 +1,5 @@
 """Tests for POST /sessions and GET /sessions/history."""
-import json
 import pytest
-from .conftest import create_session
 
 
 @pytest.mark.asyncio
