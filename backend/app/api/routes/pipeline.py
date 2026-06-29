@@ -111,22 +111,65 @@ async def run_pipeline(
 
 
 async def _run_and_store(session_id: str, initial_state: dict, redis) -> None:
-    settings = get_settings()
+    from datetime import datetime, timezone
+    from app.api.routes.sessions import HISTORY_KEY, HISTORY_MAX, SESSION_TTL
+
+    settings   = get_settings()
+    session_ttl = SESSION_TTL
+
+    async def _update_history(patch: dict) -> None:
+        """Find the session's history entry and merge patch fields into it."""
+        raw_entries = await redis.lrange(HISTORY_KEY, 0, HISTORY_MAX - 1)
+        for i, raw in enumerate(raw_entries):
+            try:
+                entry = json.loads(raw)
+                if entry.get("session_id") == session_id:
+                    entry.update(patch)
+                    await redis.lset(HISTORY_KEY, i, json.dumps(entry))
+                    return
+            except Exception:
+                pass
+
     try:
-        await redis.set(f"session:{session_id}:status", "running", ex=7200)
+        await redis.set(f"session:{session_id}:status", "running", ex=session_ttl)
+        await _update_history({"status": "running"})
+
         result = await asyncio.wait_for(
             asyncio.to_thread(compiled_graph.invoke, initial_state),
             timeout=settings.pipeline_timeout_seconds,
         )
-        await redis.set(f"session:{session_id}:result", json.dumps(result), ex=7200)
-        await redis.set(f"session:{session_id}:status", "done", ex=7200)
+
+        # Build timing summary from harness chain entries
+        chain = [e for e in result.get("audit_log", []) if e.get("tool") == "harness_chain"]
+        agent_timings = {e["agent"]: e.get("elapsed_s") for e in chain if e.get("agent")}
+        total_elapsed = round(sum(e.get("elapsed_s", 0) for e in chain), 2)
+
+        await redis.set(f"session:{session_id}:result", json.dumps(result), ex=session_ttl)
+        await redis.set(f"session:{session_id}:status", "done", ex=session_ttl)
+
+        await _update_history({
+            "status":          "done",
+            "completed_at":    datetime.now(timezone.utc).isoformat(),
+            "story_count":     len(result.get("user_stories", [])),
+            "intent_count":    len(result.get("extracted_intents", [])),
+            "overall_score":   result.get("evaluation_scores", {}).get("overall_score"),
+            "retry_count":     result.get("retry_count", 0),
+            "total_elapsed_s": total_elapsed,
+            "agent_timings":   agent_timings,
+            "halt_reason":     result.get("halt_reason", ""),
+        })
         logger.info("Pipeline completed for session %s", session_id)
+
     except asyncio.TimeoutError:
+        msg = "Pipeline timed out — try with fewer or shorter transcripts."
         logger.error("Pipeline timed out for session %s after %ds", session_id, settings.pipeline_timeout_seconds)
-        await redis.set(f"session:{session_id}:status", "error:Pipeline timed out — try with fewer or shorter transcripts.", ex=3600)
+        await redis.set(f"session:{session_id}:status", f"error:{msg}", ex=3600)
+        await _update_history({"status": "error", "error": msg, "completed_at": datetime.now(timezone.utc).isoformat()})
     except Exception as exc:
+        msg = _user_friendly_error(exc)
         logger.exception("Pipeline failed for session %s: %s", session_id, exc)
-        await redis.set(f"session:{session_id}:status", f"error:{_user_friendly_error(exc)}", ex=3600)
+        await redis.set(f"session:{session_id}:status", f"error:{msg}", ex=3600)
+        await _update_history({"status": "error", "error": msg, "completed_at": datetime.now(timezone.utc).isoformat()})
 
 
 @router.get("/stream/{session_id}")

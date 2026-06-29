@@ -4,8 +4,8 @@ import { PipelineDashboard } from "./components/PipelineDashboard/PipelineDashbo
 import { OutputTabs } from "./components/OutputTabs/OutputTabs";
 import { useSSE } from "./hooks/useSSE";
 import { api } from "./services/api";
-import type { PipelineResult, AgentModelConfigs } from "./types";
-import { BrainCircuit, RefreshCw, CheckCircle } from "lucide-react";
+import type { PipelineResult, AgentModelConfigs, HistoryEntry } from "./types";
+import { BrainCircuit, RefreshCw, CheckCircle, History, X, Clock, BookOpen, Star } from "lucide-react";
 
 type AppState = "input" | "running" | "done";
 
@@ -53,16 +53,39 @@ export default function App() {
   const [lastModelConfigs, setLastModelConfigs] = useState<AgentModelConfigs>({});
   const [runKey, setRunKey]                 = useState(0);
   const [activeTooltip, setActiveTooltip]  = useState<string | null>(null);
+  const [showHistory, setShowHistory]       = useState(false);
+  const [history, setHistory]               = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
     api.createSession().then(setSessionId).catch(console.error);
   }, []);
+
+  const loadHistory = () => {
+    api.getHistory().then(setHistory).catch(console.error);
+  };
+
+  const handleLoadHistoryRun = (entry: HistoryEntry) => {
+    if (entry.status !== "done") return;
+    api.getResults(entry.session_id).then((r) => {
+      setResult(r);
+      setAppState("done");
+      setShowHistory(false);
+    }).catch(console.error);
+  };
 
   const { progress, status, error, reset } = useSSE(sessionId, appState === "running" ? runKey : -1);
 
   // Derive agent states from SSE progress
   const doneAgents = new Set(progress.filter((p) => p.status === "done").map((p) => p.agent));
   const lastAgent  = progress[progress.length - 1]?.agent ?? "";
+
+  // Per-agent elapsed time (seconds), populated once the agent emits a "done" event
+  const agentTimings: Record<string, number> = {};
+  for (const p of progress) {
+    if (p.status === "done" && p.elapsed_s !== undefined) {
+      agentTimings[p.agent] = p.elapsed_s;
+    }
+  }
 
   useEffect(() => {
     if (status === "done") {
@@ -167,6 +190,20 @@ export default function App() {
                 </span>
               </div>
             )}
+            <button
+              className="nav-btn"
+              onClick={() => { loadHistory(); setShowHistory(true); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 12px", borderRadius: 6,
+                background: "transparent",
+                border: `1px solid ${THEME.border}`,
+                color: THEME.textSecondary, fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              <History size={11} /> History
+            </button>
             {appState !== "input" && (
               <button
                 className="nav-btn"
@@ -371,16 +408,24 @@ export default function App() {
                       {step.desc}
                     </div>
 
-                    {/* Status label below desc */}
+                    {/* Status label + elapsed time below desc */}
                     {(isDone || isRunning) && (
-                      <div style={{
-                        marginTop: 6,
-                        fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                        color: step.color,
-                        opacity: isDone ? 1 : 0.8,
-                        animation: isRunning ? "dot-pulse 1.5s ease-in-out infinite" : "none",
-                      }}>
-                        {isDone ? "✓ DONE" : "● RUNNING"}
+                      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                        <div style={{
+                          fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                          color: step.color,
+                          opacity: isDone ? 1 : 0.8,
+                          animation: isRunning ? "dot-pulse 1.5s ease-in-out infinite" : "none",
+                        }}>
+                          {isDone ? "✓ DONE" : "● RUNNING"}
+                        </div>
+                        {isDone && agentTimings[step.id] !== undefined && (
+                          <div style={{
+                            fontSize: 10, color: THEME.textMuted, fontVariantNumeric: "tabular-nums",
+                          }}>
+                            {agentTimings[step.id].toFixed(1)}s
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -478,6 +523,150 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* ── History panel (slide-over) ── */}
+      {showHistory && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 200,
+          display: "flex", justifyContent: "flex-end",
+        }}>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowHistory(false)}
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)" }}
+          />
+
+          {/* Panel */}
+          <div style={{
+            position: "relative", width: 440,
+            background: THEME.surface,
+            borderLeft: `1px solid ${THEME.border}`,
+            display: "flex", flexDirection: "column",
+            height: "100vh", overflowY: "auto",
+            animation: "fadeIn 0.2s ease both",
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: "20px 24px",
+              borderBottom: `1px solid ${THEME.border}`,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              position: "sticky", top: 0,
+              background: THEME.surface, zIndex: 1,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <History size={16} color={THEME.accent} />
+                <span style={{ fontSize: 14, fontWeight: 700, color: THEME.textPrimary }}>Execution History</span>
+                <span style={{
+                  fontSize: 11, padding: "2px 8px", borderRadius: 999,
+                  background: THEME.accentMuted, color: THEME.accent, fontWeight: 600,
+                }}>
+                  {history.filter(h => h.status === "done").length} runs
+                </span>
+              </div>
+              <button onClick={() => setShowHistory(false)} style={{
+                background: "transparent", border: "none",
+                color: THEME.textMuted, cursor: "pointer", padding: 4, borderRadius: 4,
+              }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Entries */}
+            <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {history.length === 0 && (
+                <div style={{ textAlign: "center", padding: 48, color: THEME.textMuted, fontSize: 13 }}>
+                  No executions yet.<br />Run the pipeline to see history here.
+                </div>
+              )}
+              {history.map((entry) => {
+                const isDone  = entry.status === "done";
+                const isError = entry.status === "error";
+                const date    = new Date(entry.created_at);
+                const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+                const timeStr = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+                const statusColor = isDone ? THEME.success : isError ? "#f87171" : THEME.warning;
+
+                return (
+                  <div
+                    key={entry.session_id}
+                    onClick={() => isDone && handleLoadHistoryRun(entry)}
+                    style={{
+                      padding: "14px 16px", borderRadius: 10,
+                      border: `1px solid ${THEME.border}`,
+                      background: isDone ? "rgba(255,255,255,0.02)" : "transparent",
+                      cursor: isDone ? "pointer" : "default",
+                      transition: "border-color 0.15s, background 0.15s",
+                    }}
+                    onMouseEnter={e => { if (isDone) (e.currentTarget as HTMLDivElement).style.borderColor = THEME.accent; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = THEME.border; }}
+                  >
+                    {/* Top row */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: THEME.textPrimary, marginBottom: 2 }}>
+                          {dateStr} · {timeStr}
+                        </div>
+                        <div style={{ fontSize: 10, color: THEME.textMuted, fontFamily: "monospace" }}>
+                          {entry.session_id.slice(0, 16)}…
+                        </div>
+                      </div>
+                      <div style={{
+                        fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
+                        padding: "3px 8px", borderRadius: 999,
+                        background: `${statusColor}18`, color: statusColor,
+                        border: `1px solid ${statusColor}30`,
+                      }}>
+                        {entry.status.toUpperCase()}
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    {isDone && (
+                      <div style={{ display: "flex", gap: 16 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <BookOpen size={11} color={THEME.textMuted} />
+                          <span style={{ fontSize: 11, color: THEME.textSecondary }}>
+                            {entry.story_count ?? 0} stories
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <Star size={11} color={THEME.textMuted} />
+                          <span style={{ fontSize: 11, color: THEME.textSecondary }}>
+                            {entry.overall_score?.toFixed(1) ?? "—"} / 5
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <Clock size={11} color={THEME.textMuted} />
+                          <span style={{ fontSize: 11, color: THEME.textSecondary }}>
+                            {entry.total_elapsed_s?.toFixed(0) ?? "—"}s
+                          </span>
+                        </div>
+                        {(entry.retry_count ?? 0) > 0 && (
+                          <span style={{ fontSize: 11, color: THEME.warning }}>
+                            {entry.retry_count} retry
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {isError && (
+                      <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>
+                        {entry.error?.slice(0, 80)}
+                      </div>
+                    )}
+
+                    {isDone && (
+                      <div style={{ marginTop: 10, fontSize: 11, color: THEME.accent, fontWeight: 600 }}>
+                        Click to load results →
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

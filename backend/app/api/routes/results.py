@@ -49,6 +49,11 @@ async def get_results(session_id: str, request: Request) -> dict:
 
     result = json.loads(result_raw)
 
+    # Build per-agent timing summary from harness chain entries
+    chain = [e for e in result.get("audit_log", []) if e.get("tool") == "harness_chain"]
+    agent_timings = {e["agent"]: e.get("elapsed_s") for e in chain if e.get("agent")}
+    total_elapsed = round(sum(e.get("elapsed_s", 0) for e in chain), 2)
+
     # prompt_traces are never returned to API consumers
     return {
         "session_id":        session_id,
@@ -62,6 +67,10 @@ async def get_results(session_id: str, request: Request) -> dict:
         "story_iterations":  result.get("story_iterations", []),
         "retry_count":       result.get("retry_count", 0),
         "halt_reason":       result.get("halt_reason", ""),
+        "timing": {
+            "agents":        agent_timings,
+            "total_elapsed_s": total_elapsed,
+        },
     }
 
 
@@ -202,8 +211,27 @@ def _to_markdown(result: dict) -> str:
         "",
     ]
 
-    # ── Audit Log ─────────────────────────────────────────────────────────────
+    # ── Pipeline Timing ───────────────────────────────────────────────────────
     audit_log  = result.get("audit_log", [])
+    chain_entries_all = [e for e in audit_log if e.get("tool") == "harness_chain"]
+    if chain_entries_all:
+        total_elapsed = sum(e.get("elapsed_s", 0) for e in chain_entries_all)
+        lines += [
+            "---", "",
+            "## Pipeline Timing", "",
+            "| Agent | Status | Elapsed |",
+            "|-------|--------|---------|",
+        ]
+        for e in chain_entries_all:
+            lines.append(
+                f"| {e.get('agent', '?')} | {e.get('status', '?')} | {e.get('elapsed_s', '?')}s |"
+            )
+        lines += [
+            f"| **Total** | | **{total_elapsed:.2f}s** |",
+            "",
+        ]
+
+    # ── Audit Log ─────────────────────────────────────────────────────────────
     chain_check = verify_audit_chain(audit_log)
     integrity_badge = "✅ INTACT" if chain_check["valid"] else f"⚠️ BROKEN at entry {chain_check.get('broken_at')}"
 

@@ -114,6 +114,21 @@ export interface ProgressEvent {
   agent: string;
   status: string;
   timestamp: string;
+  elapsed_s?: number;
+}
+
+export interface HistoryEntry {
+  session_id: string;
+  created_at: string;
+  completed_at?: string;
+  status: "created" | "running" | "done" | "error";
+  story_count?: number;
+  intent_count?: number;
+  overall_score?: number;
+  retry_count?: number;
+  total_elapsed_s?: number;
+  halt_reason?: string;
+  error?: string;
 }
 
 export type SSEMessage =

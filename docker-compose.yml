@@ -44,11 +44,12 @@ services:
   mcp-server:
     build: ./backend
     command: ["python", "-m", "mcp_server.server"]
-    expose:
-      - "8002"
+    ports:
+      - "8002:8002"
     env_file: ./backend/.env
     depends_on:
       - redis
+      - backend
     environment:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       BACKEND_URL: http://backend:8000

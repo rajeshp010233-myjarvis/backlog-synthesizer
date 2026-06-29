@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { PipelineResult, AgentModelConfigs, JiraTicket } from "../types";
+import type { PipelineResult, AgentModelConfigs, JiraTicket, HistoryEntry } from "../types";
 
 // Base URL and API key are set at build time via Vite environment variables.
 // In development: create frontend/.env.local with VITE_API_BASE_URL=http://localhost:8000
@@ -39,9 +39,6 @@ export const api = {
   runPipeline: (sessionId: string, agentModelConfigs: AgentModelConfigs = {}) =>
     client.post(`/pipeline/run/${sessionId}`, { agent_model_configs: agentModelConfigs }),
 
-  getResults: (sessionId: string): Promise<PipelineResult> =>
-    client.get(`/results/${sessionId}`).then((r) => r.data),
-
   streamUrl: (sessionId: string) => `${BASE}/pipeline/stream/${sessionId}`,
 
   exportResults: (sessionId: string, format: "json" | "markdown") =>
@@ -57,4 +54,10 @@ export const api = {
 
   getCreatedTickets: (sessionId: string): Promise<JiraTicket[]> =>
     client.get(`/jira/tickets/${sessionId}`).then((r) => r.data.tickets),
+
+  getHistory: (): Promise<HistoryEntry[]> =>
+    client.get("/sessions/history").then((r) => r.data.history),
+
+  getResults: (sessionId: string): Promise<PipelineResult> =>
+    client.get(`/results/${sessionId}`).then((r) => r.data),
 };

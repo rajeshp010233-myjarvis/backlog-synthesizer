@@ -238,6 +238,13 @@ def agent_harness(required_inputs: list[str] | None = None):
                     )
                     result.setdefault("audit_log", [])
                     result["audit_log"] = result["audit_log"] + [chain_entry]
+
+                    # Tag the agent's own "done" progress event with elapsed_s
+                    # so the frontend and API consumers can display per-agent timing.
+                    for p in result.get("progress", []):
+                        if p.get("status") == "done":
+                            p["elapsed_s"] = round(elapsed, 2)
+
                     return result
 
                 except NonRetryableError as exc:
