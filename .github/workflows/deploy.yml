@@ -1,17 +1,16 @@
 name: Deploy — AWS Free Tier (EC2 + ECR)
 
 # ─── AWS Free Tier architecture ───────────────────────────────────────────────
-# EC2 t2.micro (750 h/month free) — runs all services via docker-compose
-# ECR             — stores Docker images (500 MB free storage)
-# Elastic IP      — static public IP so your URL never changes
-# CloudWatch Logs — basic log ingestion (5 GB free)
+# All infrastructure is managed by Terraform in infra/terraform/
+# Run `terraform apply` once to create resources, then set the GitHub Secrets
+# printed by `terraform output github_secrets_summary`.
 #
-# ─── Required GitHub Secrets ──────────────────────────────────────────────────
-# AWS_ACCESS_KEY_ID       — IAM user key (needs ECR + EC2 SSM permissions)
-# AWS_SECRET_ACCESS_KEY
-# AWS_REGION              — e.g. us-east-1
-# AWS_ACCOUNT_ID          — 12-digit account number
-# EC2_INSTANCE_ID         — i-0abc1234def567890
+# Required GitHub Secrets:
+#   AWS_ACCESS_KEY_ID       — from: terraform output github_actions_access_key_id
+#   AWS_SECRET_ACCESS_KEY   — from: terraform output -raw github_actions_secret_access_key
+#   AWS_REGION              — e.g. us-east-1
+#   AWS_ACCOUNT_ID          — from: terraform output aws_account_id
+#   EC2_INSTANCE_ID         — from: terraform output instance_id
 # ──────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -20,16 +19,15 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION:   ${{ secrets.AWS_REGION }}
-  ACCOUNT_ID:   ${{ secrets.AWS_ACCOUNT_ID }}
-  IMAGE_TAG:    ${{ github.sha }}
-  # ECR repo names (created once manually or via bootstrap script)
+  AWS_REGION:    ${{ secrets.AWS_REGION }}
+  ACCOUNT_ID:    ${{ secrets.AWS_ACCOUNT_ID }}
+  IMAGE_TAG:     ${{ github.sha }}
   BACKEND_REPO:  backlog-synthesizer-backend
   FRONTEND_REPO: backlog-synthesizer-frontend
   MCP_REPO:      backlog-synthesizer-mcp-server
 
 jobs:
-  # ── 1. Run tests first (gate on green) ──────────────────────────────────────
+  # ── 1. Tests (gate — must pass before any AWS action) ───────────────────────
   test:
     name: Tests (must pass before deploy)
     runs-on: ubuntu-latest
@@ -79,14 +77,6 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Ensure ECR repositories exist
-        run: |
-          for repo in $BACKEND_REPO $FRONTEND_REPO $MCP_REPO; do
-            aws ecr describe-repositories --repository-names "$repo" 2>/dev/null || \
-            aws ecr create-repository --repository-name "$repo" \
-              --image-scanning-configuration scanOnPush=true
-          done
-
       - uses: docker/setup-buildx-action@v3
 
       - name: Build & push backend
@@ -122,7 +112,7 @@ jobs:
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
-  # ── 3. Deploy to EC2 via SSM (no open SSH port needed) ──────────────────────
+  # ── 3. Deploy to EC2 via SSM Run Command (no open SSH port needed) ───────────
   deploy-ec2:
     name: Deploy to EC2 (free tier t2.micro)
     runs-on: ubuntu-latest
@@ -143,47 +133,32 @@ jobs:
         run: |
           ECR_REGISTRY="${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
 
-          aws ssm send-command \
+          COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy backlog-synthesizer ${{ env.IMAGE_TAG }}" \
-            --parameters 'commands=[
-              "set -e",
-              "cd /opt/backlog-synthesizer",
-
-              "# Authenticate Docker with ECR",
-              "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
-
-              "# Pull latest images",
-              "docker pull '"$ECR_REGISTRY"'/${{ env.BACKEND_REPO }}:latest",
-              "docker pull '"$ECR_REGISTRY"'/${{ env.FRONTEND_REPO }}:latest",
-              "docker pull '"$ECR_REGISTRY"'/${{ env.MCP_REPO }}:latest",
-
-              "# Update compose to use ECR images",
-              "export ECR_REGISTRY='"$ECR_REGISTRY"'",
-              "export IMAGE_TAG=latest",
-
-              "# Rolling restart — pull new images, recreate containers",
-              "docker compose up -d --no-build",
-
-              "# Remove dangling images to save disk space",
-              "docker image prune -f",
-
-              "echo Deploy complete: ${{ env.IMAGE_TAG }}"
-            ]' \
+            --comment "Deploy ${{ env.IMAGE_TAG }}" \
+            --parameters "commands=[
+              'set -e',
+              'cd /opt/backlog-synthesizer',
+              'aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${ECR_REGISTRY}',
+              'export ECR_REGISTRY=${ECR_REGISTRY}',
+              'export IMAGE_TAG=${{ env.IMAGE_TAG }}',
+              'docker compose pull',
+              'docker compose up -d --remove-orphans',
+              'docker image prune -f',
+              'echo Deploy complete ${{ env.IMAGE_TAG }}'
+            ]" \
             --output text \
-            --query "Command.CommandId" > /tmp/command_id.txt
+            --query "Command.CommandId")
 
-          COMMAND_ID=$(cat /tmp/command_id.txt)
           echo "SSM Command ID: $COMMAND_ID"
 
-          # Wait for command to complete (up to 5 minutes)
           for i in $(seq 1 30); do
             STATUS=$(aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
               --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
               --query "Status" --output text 2>/dev/null || echo "Pending")
-            echo "[$i/30] Status: $STATUS"
+            echo "[$i/30] $STATUS"
             if [ "$STATUS" = "Success" ]; then
               echo "Deploy succeeded."
               exit 0
@@ -196,7 +171,7 @@ jobs:
             fi
             sleep 10
           done
-          echo "Timed out waiting for deploy."
+          echo "Timed out."
           exit 1
 
   # ── Notify on failure ────────────────────────────────────────────────────────
@@ -207,5 +182,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Summary
-        run: |
-          echo "::error::Pipeline failed at commit ${{ github.sha }} by ${{ github.actor }}"
+        run: echo "::error::Pipeline failed at ${{ github.sha }} by ${{ github.actor }}"
