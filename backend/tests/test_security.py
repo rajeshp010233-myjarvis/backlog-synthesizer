@@ -1,63 +1,71 @@
 """Tests for API key enforcement and session ID validation."""
 import pytest
+from contextlib import asynccontextmanager
 from unittest.mock import patch
 from httpx import AsyncClient, ASGITransport
-from app.main import create_app
 from app.config import get_settings
 
 
-@pytest.mark.asyncio
-async def test_no_api_key_config_allows_all_requests(client):
-    """When APP_API_KEY is not set every request should pass through."""
-    resp = await client.post("/sessions")
-    assert resp.status_code == 200
+def _make_app(fake_redis, api_key: str = ""):
+    from app.main import create_app
 
-
-@pytest.mark.asyncio
-async def test_wrong_api_key_returns_401():
-    with patch.dict("os.environ", {"APP_API_KEY": "correct-key"}):
+    env = {"APP_API_KEY": api_key} if api_key else {}
+    with patch.dict("os.environ", env):
         get_settings.cache_clear()
         app = create_app()
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-            headers={"X-Api-Key": "wrong-key"},
-        ) as c:
-            resp = await c.post("/sessions")
-            assert resp.status_code == 401
-        get_settings.cache_clear()
+
+    @asynccontextmanager
+    async def _lifespan(app):
+        app.state.redis = fake_redis
+        yield
+
+    app.router.lifespan_context = _lifespan
+    get_settings.cache_clear()
+    return app
 
 
 @pytest.mark.asyncio
-async def test_correct_api_key_returns_200():
-    with patch.dict("os.environ", {"APP_API_KEY": "correct-key"}):
-        get_settings.cache_clear()
-        app = create_app()
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-            headers={"X-Api-Key": "correct-key"},
-        ) as c:
-            resp = await c.post("/sessions")
-            assert resp.status_code == 200
-        get_settings.cache_clear()
+async def test_no_api_key_config_allows_all_requests(fake_redis):
+    app = _make_app(fake_redis, api_key="")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post("/sessions")
+        assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_missing_api_key_header_returns_401():
-    with patch.dict("os.environ", {"APP_API_KEY": "correct-key"}):
-        get_settings.cache_clear()
-        app = create_app()
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as c:
-            resp = await c.post("/sessions")
-            assert resp.status_code == 401
-        get_settings.cache_clear()
+async def test_wrong_api_key_returns_401(fake_redis):
+    app = _make_app(fake_redis, api_key="correct-key")
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-Api-Key": "wrong-key"},
+    ) as c:
+        resp = await c.post("/sessions")
+        assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_correct_api_key_returns_200(fake_redis):
+    app = _make_app(fake_redis, api_key="correct-key")
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-Api-Key": "correct-key"},
+    ) as c:
+        resp = await c.post("/sessions")
+        assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_missing_api_key_header_returns_401(fake_redis):
+    app = _make_app(fake_redis, api_key="correct-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post("/sessions")
+        assert resp.status_code == 401
 
 
 def test_session_id_valid_format():
+    get_settings.cache_clear()
     s = get_settings()
     assert s.session_id_is_valid("abc12345") is True
     assert s.session_id_is_valid("ABC-xyz_1234567890") is True

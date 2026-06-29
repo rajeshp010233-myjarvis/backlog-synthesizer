@@ -53,8 +53,9 @@ async def test_history_entry_has_required_fields(client):
 
 
 @pytest.mark.asyncio
-async def test_api_key_required_when_configured(authed_client):
+async def test_api_key_required_when_configured(fake_redis):
     """Without the key header the endpoint must return 401."""
+    from contextlib import asynccontextmanager
     from httpx import AsyncClient, ASGITransport
     from unittest.mock import patch
     from app.main import create_app
@@ -63,6 +64,14 @@ async def test_api_key_required_when_configured(authed_client):
     with patch.dict("os.environ", {"APP_API_KEY": "test-secret"}):
         get_settings.cache_clear()
         app = create_app()
+
+        @asynccontextmanager
+        async def _lifespan(app):
+            app.state.redis = fake_redis
+            yield
+
+        app.router.lifespan_context = _lifespan
+
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",

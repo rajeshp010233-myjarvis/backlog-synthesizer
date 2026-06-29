@@ -1,16 +1,13 @@
 """Shared pytest fixtures for all backend tests.
 
 Uses fakeredis so no real Redis instance is needed during CI.
-The FastAPI app is created fresh for each test session via the
-standard httpx AsyncClient / TestClient pattern.
 """
 import json
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from httpx import AsyncClient, ASGITransport
 
-from app.main import create_app
 from app.config import get_settings
 
 
@@ -18,18 +15,38 @@ from app.config import get_settings
 
 @pytest.fixture
 def fake_redis():
-    """In-memory dict-backed fake that covers the Redis commands we use."""
-    import fakeredis.aioredis as fakeredis
-    return fakeredis.FakeRedis(decode_responses=False)
+    """Synchronous fakeredis instance that supports async commands."""
+    try:
+        import fakeredis
+        return fakeredis.FakeRedis(decode_responses=False)
+    except Exception:
+        import fakeredis.aioredis as fakeredis_async
+        return fakeredis_async.FakeRedis(decode_responses=False)
 
 
 # ── App + HTTP client ──────────────────────────────────────────────────────────
 
 @pytest_asyncio.fixture
 async def client(fake_redis):
-    """Async HTTP client wired to the FastAPI app with a fake Redis."""
+    """Async HTTP client wired to the FastAPI app with a fake Redis.
+
+    We bypass the lifespan entirely by injecting fake_redis directly onto
+    app.state before the first request, so tests never touch a real Redis.
+    """
+    from app.main import create_app
+
     app = create_app()
-    app.state.redis = fake_redis
+
+    # Inject fake redis BEFORE the lifespan tries to connect
+    # We monkeypatch the lifespan to skip real Redis startup
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _test_lifespan(app):
+        app.state.redis = fake_redis
+        yield
+
+    app.router.lifespan_context = _test_lifespan
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -40,12 +57,21 @@ async def client(fake_redis):
 
 @pytest_asyncio.fixture
 async def authed_client(fake_redis):
-    """Client with APP_API_KEY set — all requests carry the key header."""
+    """Client with APP_API_KEY enforced."""
+    from app.main import create_app
+    from contextlib import asynccontextmanager
+
     with patch.dict("os.environ", {"APP_API_KEY": "test-secret"}):
-        # Bust the lru_cache so the patched env is picked up
         get_settings.cache_clear()
+
         app = create_app()
-        app.state.redis = fake_redis
+
+        @asynccontextmanager
+        async def _test_lifespan(app):
+            app.state.redis = fake_redis
+            yield
+
+        app.router.lifespan_context = _test_lifespan
 
         async with AsyncClient(
             transport=ASGITransport(app=app),
@@ -60,25 +86,23 @@ async def authed_client(fake_redis):
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 async def create_session(client) -> str:
-    """Create a session and return its ID."""
     resp = await client.post("/sessions")
-    assert resp.status_code == 200
+    assert resp.status_code == 200, f"create_session failed: {resp.text}"
     return resp.json()["session_id"]
 
 
 async def seed_session(client, fake_redis, transcripts=None, wiki=None) -> str:
-    """Create a session and pre-populate Redis with transcript/wiki data."""
     session_id = await create_session(client)
     ttl = 7 * 24 * 3600
     if transcripts is not None:
-        await fake_redis.set(
-            f"session:{session_id}:transcripts",
+        fake_redis.set(
+            f"session:{session_id}:transcripts".encode(),
             json.dumps(transcripts).encode(),
             ex=ttl,
         )
     if wiki is not None:
-        await fake_redis.set(
-            f"session:{session_id}:wiki",
+        fake_redis.set(
+            f"session:{session_id}:wiki".encode(),
             json.dumps(wiki).encode(),
             ex=ttl,
         )
