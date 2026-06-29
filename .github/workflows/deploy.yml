@@ -1,108 +1,138 @@
-name: Build & Deploy
+name: Deploy — AWS Free Tier (EC2 + ECR)
+
+# ─── AWS Free Tier architecture ───────────────────────────────────────────────
+# EC2 t2.micro (750 h/month free) — runs all services via docker-compose
+# ECR             — stores Docker images (500 MB free storage)
+# Elastic IP      — static public IP so your URL never changes
+# CloudWatch Logs — basic log ingestion (5 GB free)
+#
+# ─── Required GitHub Secrets ──────────────────────────────────────────────────
+# AWS_ACCESS_KEY_ID       — IAM user key (needs ECR + EC2 SSM permissions)
+# AWS_SECRET_ACCESS_KEY
+# AWS_REGION              — e.g. us-east-1
+# AWS_ACCOUNT_ID          — 12-digit account number
+# EC2_INSTANCE_ID         — i-0abc1234def567890
+# ──────────────────────────────────────────────────────────────────────────────
 
 on:
   push:
-    branches: [main]
+    branches: ["master", "main"]
   workflow_dispatch:
 
 env:
-  IMAGE_TAG: ${{ github.sha }}
-
-# ─── Required GitHub Secrets ──────────────────────────────────────────────────
-# AWS_ACCOUNT_ID          – 12-digit AWS account number
-# AWS_REGION              – e.g. us-east-1
-# AWS_ACCESS_KEY_ID       – IAM user with ECR + ECS permissions
-# AWS_SECRET_ACCESS_KEY
-# ECS_CLUSTER             – name of your ECS cluster
-#
-# AZURE_CREDENTIALS       – JSON output of: az ad sp create-for-rbac --sdk-auth
-# AZURE_RESOURCE_GROUP    – resource group containing Container Apps
-# ACR_LOGIN_SERVER        – e.g. myregistry.azurecr.io
-# ACR_USERNAME
-# ACR_PASSWORD
-# AZURE_CONTAINER_APPS_ENV – Container Apps environment name
-# ──────────────────────────────────────────────────────────────────────────────
+  AWS_REGION:   ${{ secrets.AWS_REGION }}
+  ACCOUNT_ID:   ${{ secrets.AWS_ACCOUNT_ID }}
+  IMAGE_TAG:    ${{ github.sha }}
+  # ECR repo names (created once manually or via bootstrap script)
+  BACKEND_REPO:  backlog-synthesizer-backend
+  FRONTEND_REPO: backlog-synthesizer-frontend
+  MCP_REPO:      backlog-synthesizer-mcp-server
 
 jobs:
-  # ── 1. BUILD & PUSH to both registries ──────────────────────────────────────
-  build-and-push:
-    name: Build images & push to ECR + ACR
+  # ── 1. Run tests first (gate on green) ──────────────────────────────────────
+  test:
+    name: Tests (must pass before deploy)
     runs-on: ubuntu-latest
-    outputs:
-      ecr-registry: ${{ steps.login-ecr.outputs.registry }}
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-test.txt
 
-      # ── AWS ECR login ──
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: pytest
+        env:
+          OPENAI_API_KEY: ""
+          ANTHROPIC_API_KEY: ""
+          GOOGLE_API_KEY: ""
+          REDIS_URL: "redis://localhost:6379"
+          APP_API_KEY: ""
+        run: pytest
+
+  # ── 2. Build & push images to ECR ───────────────────────────────────────────
+  build-and-push:
+    name: Build & push to ECR
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      ecr-registry: ${{ steps.login-ecr.outputs.registry }}
+
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ secrets.AWS_REGION }}
+          aws-region:            ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── Azure ACR login ──
-      - name: Login to Azure Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+      - name: Ensure ECR repositories exist
+        run: |
+          for repo in $BACKEND_REPO $FRONTEND_REPO $MCP_REPO; do
+            aws ecr describe-repositories --repository-names "$repo" 2>/dev/null || \
+            aws ecr create-repository --repository-name "$repo" \
+              --image-scanning-configuration scanOnPush=true
+          done
 
-      # ── Backend ──
+      - uses: docker/setup-buildx-action@v3
+
       - name: Build & push backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-backend:${{ env.IMAGE_TAG }}
-            ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-backend:latest
-            ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-backend:${{ env.IMAGE_TAG }}
-            ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-backend:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.BACKEND_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.BACKEND_REPO }}:latest
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to:   type=gha,mode=max
 
-      # ── Frontend ──
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-frontend:${{ env.IMAGE_TAG }}
-            ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-frontend:latest
-            ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-frontend:${{ env.IMAGE_TAG }}
-            ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-frontend:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.FRONTEND_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.FRONTEND_REPO }}:latest
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to:   type=gha,mode=max
 
-      # ── MCP Server (same Dockerfile as backend, different CMD at runtime) ──
       - name: Build & push mcp-server
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-mcp-server:${{ env.IMAGE_TAG }}
-            ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-mcp-server:latest
-            ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-mcp-server:${{ env.IMAGE_TAG }}
-            ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-mcp-server:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.MCP_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.MCP_REPO }}:latest
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to:   type=gha,mode=max
 
-  # ── 2a. DEPLOY to AWS ECS Fargate ───────────────────────────────────────────
-  deploy-aws:
-    name: Deploy to AWS ECS
-    needs: build-and-push
+  # ── 3. Deploy to EC2 via SSM (no open SSH port needed) ──────────────────────
+  deploy-ec2:
+    name: Deploy to EC2 (free tier t2.micro)
     runs-on: ubuntu-latest
-    environment: production-aws
+    needs: build-and-push
+    environment: production
+
     steps:
       - uses: actions/checkout@v4
 
@@ -111,140 +141,75 @@ jobs:
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ secrets.AWS_REGION }}
+          aws-region:            ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Deploy via SSM Run Command
+        run: |
+          ECR_REGISTRY="${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
 
-      # ── Backend service ──
-      - name: Render backend task definition
-        id: task-def-backend
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: infra/aws/task-definitions/backend.json
-          container-name:  backend
-          image: ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-backend:${{ env.IMAGE_TAG }}
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy backlog-synthesizer ${{ env.IMAGE_TAG }}" \
+            --parameters 'commands=[
+              "set -e",
+              "cd /opt/backlog-synthesizer",
 
-      - name: Deploy backend to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition:  ${{ steps.task-def-backend.outputs.task-definition }}
-          service:          backlog-synthesizer-backend
-          cluster:          ${{ secrets.ECS_CLUSTER }}
-          wait-for-service-stability: true
+              "# Authenticate Docker with ECR",
+              "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
 
-      # ── Frontend service ──
-      - name: Render frontend task definition
-        id: task-def-frontend
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: infra/aws/task-definitions/frontend.json
-          container-name:  frontend
-          image: ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-frontend:${{ env.IMAGE_TAG }}
+              "# Pull latest images",
+              "docker pull '"$ECR_REGISTRY"'/${{ env.BACKEND_REPO }}:latest",
+              "docker pull '"$ECR_REGISTRY"'/${{ env.FRONTEND_REPO }}:latest",
+              "docker pull '"$ECR_REGISTRY"'/${{ env.MCP_REPO }}:latest",
 
-      - name: Deploy frontend to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition:  ${{ steps.task-def-frontend.outputs.task-definition }}
-          service:          backlog-synthesizer-frontend
-          cluster:          ${{ secrets.ECS_CLUSTER }}
-          wait-for-service-stability: true
+              "# Update compose to use ECR images",
+              "export ECR_REGISTRY='"$ECR_REGISTRY"'",
+              "export IMAGE_TAG=latest",
 
-      # ── MCP Server service ──
-      - name: Render mcp-server task definition
-        id: task-def-mcp
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: infra/aws/task-definitions/mcp-server.json
-          container-name:  mcp-server
-          image: ${{ steps.login-ecr.outputs.registry }}/backlog-synthesizer-mcp-server:${{ env.IMAGE_TAG }}
+              "# Rolling restart — pull new images, recreate containers",
+              "docker compose up -d --no-build",
 
-      - name: Deploy mcp-server to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition:  ${{ steps.task-def-mcp.outputs.task-definition }}
-          service:          backlog-synthesizer-mcp-server
-          cluster:          ${{ secrets.ECS_CLUSTER }}
-          wait-for-service-stability: true
+              "# Remove dangling images to save disk space",
+              "docker image prune -f",
 
-  # ── 2b. DEPLOY to Azure Container Apps ──────────────────────────────────────
-  deploy-azure:
-    name: Deploy to Azure Container Apps
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: production-azure
-    steps:
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+              "echo Deploy complete: ${{ env.IMAGE_TAG }}"
+            ]' \
+            --output text \
+            --query "Command.CommandId" > /tmp/command_id.txt
 
-      # ── Backend ──
-      - name: Deploy backend container app
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          resourceGroup:         ${{ secrets.AZURE_RESOURCE_GROUP }}
-          containerAppName:      backlog-synthesizer-backend
-          containerAppEnvironment: ${{ secrets.AZURE_CONTAINER_APPS_ENV }}
-          imageToDeploy:         ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-backend:${{ env.IMAGE_TAG }}
-          registryUrl:           ${{ secrets.ACR_LOGIN_SERVER }}
-          registryUsername:      ${{ secrets.ACR_USERNAME }}
-          registryPassword:      ${{ secrets.ACR_PASSWORD }}
-          targetPort:            8000
-          ingress:               external
-          environmentVariables: >
-            CHROMA_HOST=chromadb
-            CHROMA_PORT=8000
-            USE_MOCK_BACKLOG=false
-            ANTHROPIC_API_KEY=secretref:anthropic-api-key
-            REDIS_URL=secretref:redis-url
-            JIRA_BASE_URL=secretref:jira-base-url
-            JIRA_TOKEN=secretref:jira-token
-            GITHUB_TOKEN=secretref:github-token
+          COMMAND_ID=$(cat /tmp/command_id.txt)
+          echo "SSM Command ID: $COMMAND_ID"
 
-      # ── Frontend ──
-      - name: Deploy frontend container app
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          resourceGroup:         ${{ secrets.AZURE_RESOURCE_GROUP }}
-          containerAppName:      backlog-synthesizer-frontend
-          containerAppEnvironment: ${{ secrets.AZURE_CONTAINER_APPS_ENV }}
-          imageToDeploy:         ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-frontend:${{ env.IMAGE_TAG }}
-          registryUrl:           ${{ secrets.ACR_LOGIN_SERVER }}
-          registryUsername:      ${{ secrets.ACR_USERNAME }}
-          registryPassword:      ${{ secrets.ACR_PASSWORD }}
-          targetPort:            80
-          ingress:               external
+          # Wait for command to complete (up to 5 minutes)
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+            echo "[$i/30] Status: $STATUS"
+            if [ "$STATUS" = "Success" ]; then
+              echo "Deploy succeeded."
+              exit 0
+            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+                --query "StandardErrorContent" --output text
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for deploy."
+          exit 1
 
-      # ── MCP Server ──
-      - name: Deploy mcp-server container app
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          resourceGroup:         ${{ secrets.AZURE_RESOURCE_GROUP }}
-          containerAppName:      backlog-synthesizer-mcp-server
-          containerAppEnvironment: ${{ secrets.AZURE_CONTAINER_APPS_ENV }}
-          imageToDeploy:         ${{ secrets.ACR_LOGIN_SERVER }}/backlog-synthesizer-mcp-server:${{ env.IMAGE_TAG }}
-          registryUrl:           ${{ secrets.ACR_LOGIN_SERVER }}
-          registryUsername:      ${{ secrets.ACR_USERNAME }}
-          registryPassword:      ${{ secrets.ACR_PASSWORD }}
-          targetPort:            8002
-          ingress:               external
-          environmentVariables: >
-            MCP_PORT=8002
-            REDIS_URL=secretref:redis-url
-            JIRA_TOKEN=secretref:jira-token
-            GITHUB_TOKEN=secretref:github-token
-
-  # ── 3. Notify on failure ─────────────────────────────────────────────────────
-  notify-on-failure:
+  # ── Notify on failure ────────────────────────────────────────────────────────
+  notify-failure:
     name: Notify on failure
-    needs: [deploy-aws, deploy-azure]
+    needs: [test, build-and-push, deploy-ec2]
     if: failure()
     runs-on: ubuntu-latest
     steps:
-      - name: Print failure summary
+      - name: Summary
         run: |
-          echo "::error::Deployment failed. Check the deploy-aws and deploy-azure job logs."
-          echo "Commit: ${{ github.sha }}"
-          echo "Actor:  ${{ github.actor }}"
+          echo "::error::Pipeline failed at commit ${{ github.sha }} by ${{ github.actor }}"
