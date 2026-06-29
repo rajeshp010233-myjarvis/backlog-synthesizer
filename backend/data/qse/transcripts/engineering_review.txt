@@ -1,0 +1,89 @@
+QuantumShield Entertainment – Engineering Architecture Review
+Date: 2026-06-12
+Attendees: Divya Rangan (VP Engineering), Sam Osei (Principal Engineer – Platform), Mei Lin (Staff Engineer – CDN & Streaming), Femi Adeyemi (Staff Engineer – Data), Tariq Nasser (Security Architect)
+
+---
+
+Divya: Today we're covering three tracks: CDN and packaging pipeline, data platform readiness for recommendation work, and security architecture for DRM uplift. Let's start with CDN. Mei?
+
+Mei: We're currently running on two CDN providers — Akamai primary, Fastly as failover. We've had three incidents in the past 90 days where Akamai had regional issues in Southeast Asia and we had no automated failover to Fastly. The traffic shift had to be done manually by the ops team, which added 15 to 20 minutes to incident resolution time.
+
+Divya: That's not acceptable for premium content. What does automated failover require?
+
+Mei: We need traffic orchestration logic that monitors CDN health per region and routes to the best available CDN. Currently, DNS-based routing takes 5 to 10 minutes to propagate. We should move to Anycast routing with real-time health checks at the edge. We also need to implement the CMAF packaging format — currently we serve HLS and DASH as separate outputs, which doubles our transcoding and storage footprint. CMAF lets us serve a single fragmented MP4 stream to both HLS and DASH clients.
+
+Divya: What's the storage savings from CMAF?
+
+Mei: Roughly 45 to 50 percent reduction. We store about 12 petabytes currently. CMAF would bring that down to around 6 to 7 petabytes over 18 months as we re-encode the catalogue. That's meaningful infrastructure cost savings.
+
+Sam: There's also a latency benefit for live streaming. Our live stream latency is currently 30 to 45 seconds — CMAF chunked transfer reduces that to 3 to 5 seconds, which matters a lot for sports and live events.
+
+Divya: OK. CMAF migration needs to go on the roadmap. Mei, what's the effort?
+
+Mei: New encoding pipeline — 8 to 10 weeks. Re-encoding the existing catalogue in the background — 6 to 8 months. Player SDK updates to support CMAF on older devices — probably another 4 to 6 weeks.
+
+---
+
+Divya: Tariq, DRM architecture.
+
+Tariq: DRM uplift to L1 requires three components. First, a hardware attestation service — we need to verify that the device requesting a license has a TEE (Trusted Execution Environment). This means integrating with Google's Play Integrity API for Android and Apple's DeviceCheck for iOS. Second, our key server — currently a Node.js service using a commercial keyOS module — needs to be upgraded to support the Google License Proxy Auth protocol. Third, we need a Certificate Distribution Key (CDK) hierarchy for FairPlay that Apple's Key Server Module generates during certification.
+
+Sam: One thing I want to flag: our current key server runs as a single-instance service with no HA. For a P0 DRM system, key server downtime means no one can play content. We need to run it in active-active across at least two regions before going live with L1.
+
+Tariq: Agreed. Key server HA should be a prerequisite for L1 launch. I'd also recommend adding audit logging for every license request — we need to detect anomalous license request patterns that could indicate credential sharing or piracy at scale.
+
+Divya: What about the forensic watermarking integration?
+
+Tariq: Our current watermark injection happens post-CDN at the origin. With L1 DRM, the decryption happens on the device in the TEE, so the watermark has to be baked into the encrypted segment before delivery — we can't inject it at the origin anymore. We need to move to a server-side watermarking approach where each segment gets a unique watermark at package time based on subscriber ID. This requires significant changes to our packaging pipeline.
+
+Mei: That's going to affect CDN cache efficiency. Right now one cached copy of a segment serves many users. With per-subscriber watermarking, we can't cache at the CDN level for premium watermarked content. We'd need to fetch from origin every time.
+
+Tariq: Correct. It's a trade-off. One mitigation is to use AB-watermarking — pre-render two copies of each segment with different watermark bit positions, cached at CDN, and use the combination pattern to identify the subscriber. Requires more storage but preserves cache efficiency.
+
+Sam: So the architecture choice is: per-subscriber origin watermarking (no CDN cache for premium content) vs AB-watermarking (more storage but CDN caching works). We should make that decision explicitly.
+
+Divya: Let's document both options with cost implications and bring it to the next architecture review.
+
+---
+
+Divya: Femi, data platform for recommendations.
+
+Femi: Two issues. First, our event streaming pipeline has unbounded latency. User events — play, pause, seek, search, watchlist add — are written to Kafka and then processed by a Spark batch job that runs every 4 hours. So the recommendation model sees user behaviour that's up to 4 hours stale. For personalisation to be useful, we need to get that latency down to under 5 minutes. We need to move from batch processing to a streaming feature computation architecture — Flink or Spark Streaming on top of Kafka.
+
+Divya: What's the migration path?
+
+Femi: We can run the streaming pipeline alongside the batch pipeline — dual-write the feature store — and switch the model serving layer to use the streaming features once we've validated quality. Estimate 10 to 12 weeks.
+
+Sam: There's an infrastructure cost here. Flink on EMR continuously running will cost more than the batch jobs. We need to model that.
+
+Femi: I've estimated 30 to 40 percent infrastructure cost increase for the data platform, but recommendation quality improvements should pay that back in reduced churn. I can put together a business case.
+
+Divya: Do that. Second issue?
+
+Femi: Content metadata quality. Our metadata is imported from the studios and it's inconsistent — different genre taxonomies, missing mood tags, no thematic keywords for most titles. For the hybrid recommendation model we discussed, we need to enrich this metadata. My proposal is to run a Claude-based enrichment pipeline over our content catalogue — feed it synopsis, reviews, and cast/crew data and have it generate standardised genre tags, mood tags, and thematic keywords. Run it once for the existing catalogue and then in the content ingestion pipeline going forward.
+
+Divya: Have you sized that?
+
+Femi: 60,000 titles, about 2,000 tokens of input per title on average. That's 120 million tokens for the initial batch. Very manageable with batch API pricing. Ongoing ingestion is maybe 100 to 200 new titles a month, negligible.
+
+Sam: What's the confidence level on the AI-generated tags versus manually curated?
+
+Femi: From our test on 500 titles, precision was 88 percent against human-curated ground truth. For a search and recommendation signal, that's more than good enough. We're not using it for editorial classification.
+
+---
+
+Divya: Last item — API gateway and platform stability. Sam?
+
+Sam: Three things. First, we have no rate limiting on our public API. A single misbehaving third-party integration can cause cascading timeouts because we have no circuit breakers at the gateway. We need API rate limiting by consumer key and circuit breakers before our partner API goes into wider use.
+
+Divya: How many partners are on the API now?
+
+Sam: Eleven, but five more are onboarding in Q3. One of the eleven — I won't name them — already caused a 45-minute degradation event last month by sending malformed batch requests in a loop.
+
+Sam: Second, our auth token lifecycle management is manual. Access tokens expire after 24 hours but there's no automatic refresh mechanism for service-to-service calls. Services are sharing long-lived tokens by slack message — I've seen it happen. We need a proper token rotation system with short-lived tokens, refresh tokens, and service identity management.
+
+Tariq: I was going to raise this. From a security standpoint, sharing tokens on Slack is a critical vulnerability. We need to treat this as a security incident response, not just a tech debt item.
+
+Sam: Third, observability. We don't have distributed tracing across our microservices. When a user reports "video wouldn't play", we can't reconstruct the request path across auth service, license server, CDN, and player without manually correlating logs across 5 different Kibana dashboards. We need OpenTelemetry instrumentation across all services with a single trace view.
+
+Divya: All three are approved. Sam, put together tickets with estimates. Tariq, the token sharing thing — let's treat it as an immediate security fix, separate from the Q3 roadmap.

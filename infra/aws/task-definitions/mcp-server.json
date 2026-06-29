@@ -1,0 +1,36 @@
+{
+  "family": "backlog-synthesizer-mcp-server",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "mcp-server",
+      "image": "<IMAGE>",
+      "command": ["python", "-m", "mcp_server.server"],
+      "portMappings": [
+        { "containerPort": 8002, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "MCP_PORT",     "value": "8002" },
+        { "name": "BACKEND_URL", "value": "http://backend.backlog-synthesizer.local:8000" }
+      ],
+      "secrets": [
+        { "name": "REDIS_URL",    "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:backlog-synthesizer/redis-url" },
+        { "name": "JIRA_TOKEN",   "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:backlog-synthesizer/jira-token" },
+        { "name": "GITHUB_TOKEN", "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:backlog-synthesizer/github-token" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/backlog-synthesizer-mcp-server",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

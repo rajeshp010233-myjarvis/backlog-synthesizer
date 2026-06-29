@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.next/
+build/
+
+# Docker
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data / secrets
+backend/data/*.db
+*.pem
+*.key
+chroma_data/
+redis_data/
+
+# Environment files with secrets — never commit
+.env
+*.env
+backend/.env
+frontend/.env.local

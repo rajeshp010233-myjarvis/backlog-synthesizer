@@ -1,0 +1,576 @@
+{
+  "_meta": {
+    "company": "QuantumShield Entertainment",
+    "domain": "Media Streaming",
+    "dataset_version": "1.0",
+    "created": "2026-06-20",
+    "description": "Ground-truth pipeline output for regression testing and model evaluation. Derived from three internal meetings: product strategy, user research, and engineering architecture review.",
+    "source_transcripts": [
+      "product_strategy_meeting.txt",
+      "user_research_session.txt",
+      "engineering_review.txt"
+    ]
+  },
+
+  "expected_intents": [
+    {
+      "id": "INT-01",
+      "type": "feature_request",
+      "title": "DRM upgrade to Widevine L1 / FairPlay hardware-backed protection",
+      "description": "Current Widevine L3 limits maximum resolution to 1080p. Studio partners (Warner, Paramount) require L1 hardware-backed DRM before licensing 4K HDR catalogue.",
+      "priority": "high",
+      "speaker_role": "CPO / VP Engineering / Head of Partnerships",
+      "source_quote": "Their content security auditors say our current Widevine L3-only setup is insufficient for 4K HDR titles."
+    },
+    {
+      "id": "INT-02",
+      "type": "pain_point",
+      "title": "Device DRM capability not communicated to users",
+      "description": "Users encounter generic 'content not available' errors when their device doesn't support hardware DRM. No guidance on which registered devices support 4K.",
+      "priority": "medium",
+      "speaker_role": "UX Lead",
+      "source_quote": "Right now the error is just a generic 'content not available' which drives support tickets."
+    },
+    {
+      "id": "INT-03",
+      "type": "feature_request",
+      "title": "Hybrid recommendation engine for long-tail content discovery",
+      "description": "Bottom 40% of catalogue receives <0.1% watch time. Hybrid model combining content metadata features with collaborative signals needed to surface niche content.",
+      "priority": "high",
+      "speaker_role": "Head of Content / VP Engineering",
+      "source_quote": "We're terrible at surfacing niche catalogue — documentaries, foreign films, classic cinema."
+    },
+    {
+      "id": "INT-04",
+      "type": "feature_request",
+      "title": "Editorial curation tool for content programming team",
+      "description": "Content curators have no channel into the product. Need a tool to build, schedule and monitor performance of curated collections like 'Hidden Gems'.",
+      "priority": "medium",
+      "speaker_role": "Head of Content",
+      "source_quote": "They send us Slack messages saying 'can you promote this title' and then nothing happens."
+    },
+    {
+      "id": "INT-05",
+      "type": "pain_point",
+      "title": "Android download corruption on network interruption",
+      "description": "Approximately 30% of partial downloads are corrupted when the network drops during download. Download chunk manager does not support range requests for DRM-encrypted segments.",
+      "priority": "high",
+      "speaker_role": "VP Engineering",
+      "source_quote": "Our download manager doesn't support range requests for DRM-encrypted segments properly."
+    },
+    {
+      "id": "INT-06",
+      "type": "feature_request",
+      "title": "SSAI pipeline for mid-roll ad inventory in ad-supported tier",
+      "description": "Q3 ad-supported tier launch requires server-side ad insertion for seamless mid-roll ads. Current client-side pre-roll insufficient for premium inventory.",
+      "priority": "medium",
+      "speaker_role": "Head of Partnerships / VP Engineering",
+      "source_quote": "For the premium inventory we're selling — mid-roll in premium shows — we need server-side ad insertion."
+    },
+    {
+      "id": "INT-07",
+      "type": "pain_point",
+      "title": "ABR drops quality aggressively and recovers slowly",
+      "description": "7 of 18 research users frustrated by player dropping to low quality on temporary bandwidth drops and taking 20–30 seconds to recover.",
+      "priority": "medium",
+      "speaker_role": "UX Researcher",
+      "source_quote": "The player drops quality aggressively and then takes 20 to 30 seconds to recover."
+    },
+    {
+      "id": "INT-08",
+      "type": "feature_request",
+      "title": "Mobile data cap setting with quality tier selection",
+      "description": "Users want to set a maximum quality tier for mobile data usage rather than a binary data-saver toggle.",
+      "priority": "low",
+      "speaker_role": "UX Researcher",
+      "source_quote": "They don't want the app deciding for them, they want to set a maximum quality on mobile."
+    },
+    {
+      "id": "INT-09",
+      "type": "pain_point",
+      "title": "Continue Watching cannot be dismissed and has unpredictable ordering",
+      "description": "6 of 18 users frustrated they cannot remove unwanted titles from Continue Watching. Ordering is algorithm-based but users expect strict recency.",
+      "priority": "high",
+      "speaker_role": "UX Researcher / Customer Success Manager",
+      "source_quote": "There's no way to remove something from Continue Watching without hiding it globally."
+    },
+    {
+      "id": "INT-10",
+      "type": "feature_request",
+      "title": "Watchlist collection management with folders and sorting",
+      "description": "Users with large watchlists (50+ titles) need folder/collection organisation, genre sorting, and search within watchlist.",
+      "priority": "medium",
+      "speaker_role": "UX Researcher",
+      "source_quote": "It's just one undifferentiated list."
+    },
+    {
+      "id": "INT-11",
+      "type": "pain_point",
+      "title": "Subtitle and audio preferences reset on every title",
+      "description": "11 of 18 users affected. Subtitle language, audio language, and subtitle styling reset to defaults on each new title. Accessibility issue for D/HH users.",
+      "priority": "high",
+      "speaker_role": "UX Researcher / UX Lead",
+      "source_quote": "She'd cancelled her subscription over it and then came back but it's still not fixed."
+    },
+    {
+      "id": "INT-12",
+      "type": "feature_request",
+      "title": "Semantic / enriched search against content descriptions and mood",
+      "description": "Current keyword-only search fails for natural language queries like 'sad movies for when you're crying'. Need semantic or mood-based search.",
+      "priority": "medium",
+      "speaker_role": "Product Manager / UX Researcher",
+      "source_quote": "A user typed 'space exploration documentary netflix style' and got zero results."
+    },
+    {
+      "id": "INT-13",
+      "type": "feature_request",
+      "title": "PIN-protected profile switching and kids screen time limits",
+      "description": "Kids profiles unprotected — children can switch to adult profiles freely. Parents want PIN on profile switch and configurable screen time limits.",
+      "priority": "high",
+      "speaker_role": "UX Researcher / Customer Success Manager",
+      "source_quote": "Kids profiles can access the main profile's browsing history and watchlist by switching profiles without any PIN."
+    },
+    {
+      "id": "INT-14",
+      "type": "feature_request",
+      "title": "Automated CDN failover with Anycast routing",
+      "description": "Manual CDN failover (Akamai → Fastly) adds 15–20 minutes to incident resolution. Need automated health-check-based traffic routing per region.",
+      "priority": "medium",
+      "speaker_role": "Staff Engineer – CDN",
+      "source_quote": "The traffic shift had to be done manually by the ops team."
+    },
+    {
+      "id": "INT-15",
+      "type": "feature_request",
+      "title": "Real-time streaming feature pipeline for recommendations (< 5 min latency)",
+      "description": "Current 4-hour batch latency for user behaviour features makes personalisation stale. Migrate to Flink-based streaming feature computation.",
+      "priority": "medium",
+      "speaker_role": "Staff Engineer – Data",
+      "source_quote": "The recommendation model sees user behaviour that's up to 4 hours stale."
+    },
+    {
+      "id": "INT-16",
+      "type": "pain_point",
+      "title": "Long-lived service-to-service tokens shared informally",
+      "description": "Service accounts sharing 24-hour tokens via Slack messages. Critical security violation of policy SEC-04.",
+      "priority": "high",
+      "speaker_role": "Principal Engineer / Security Architect",
+      "source_quote": "Services are sharing long-lived tokens by slack message — I've seen it happen."
+    }
+  ],
+
+  "expected_stories": [
+    {
+      "id": "US-001",
+      "type": "epic",
+      "title": "Hardware DRM Uplift (Widevine L1 / FairPlay)",
+      "description": "As a studio licensing partner, I want QuantumShield Entertainment to implement hardware-backed DRM so that I can safely license 4K HDR premium catalogue without risk of piracy.",
+      "acceptance_criteria": [
+        {
+          "given": "A user on an Android device with hardware TEE attempts to play a 4K HDR title",
+          "when": "The player requests a Widevine license",
+          "then": "The key server issues an L1 license via Google License Proxy Auth, and the content plays at 4K HDR in the hardware TEE",
+          "edge_cases": [
+            "Device fails Play Integrity attestation — player shows 'Device not supported for 4K' message",
+            "Key server is unavailable — fallback to L3 for non-HDR content only, 4K blocked"
+          ]
+        },
+        {
+          "given": "A user on an iOS device attempts to play a 4K HDR title",
+          "when": "The player requests a FairPlay license",
+          "then": "The Apple KSM-certified key server issues an L1 FairPlay license and content plays at 4K HDR",
+          "edge_cases": [
+            "FairPlay certification pending — 4K content unavailable on iOS with user-facing message"
+          ]
+        },
+        {
+          "given": "The primary key server region becomes unavailable",
+          "when": "A license request is made",
+          "then": "Traffic fails over to the secondary region within 10 seconds with no user-visible interruption",
+          "edge_cases": [
+            "Both regions down — license requests fail gracefully, in-progress playback continues for remaining token lifetime"
+          ]
+        }
+      ],
+      "system_tags": ["drm", "security", "platform"],
+      "feature_tags": ["widevine-l1", "fairplay", "key-server", "device-attestation"],
+      "source_transcript": "product_strategy_meeting.txt",
+      "priority": "high"
+    },
+    {
+      "id": "US-002",
+      "type": "story",
+      "title": "Device DRM capability display in account settings",
+      "description": "As a premium subscriber, I want to see which of my registered devices support 4K HDR playback so that I know why certain content isn't available on my old smart TV.",
+      "acceptance_criteria": [
+        {
+          "given": "A user navigates to Account > Registered Devices",
+          "when": "The devices list is shown",
+          "then": "Each device displays its DRM capability tier (4K HDR, 1080p, SD) and the supported DRM type",
+          "edge_cases": [
+            "Device capability unknown — show 'Unknown' with a link to help article",
+            "Device has expired attestation — flag as 'Reauthorisation required'"
+          ]
+        },
+        {
+          "given": "A user on an unsupported device attempts to play a 4K title",
+          "when": "Playback fails due to DRM capability mismatch",
+          "then": "The error message explains why (device doesn't support 4K DRM) and suggests which registered devices do support it",
+          "edge_cases": [
+            "User has no supported devices — message links to compatible device list and upgrade options"
+          ]
+        }
+      ],
+      "system_tags": ["drm", "ux", "devices"],
+      "feature_tags": ["device-management", "error-messaging", "4k"],
+      "source_transcript": "product_strategy_meeting.txt",
+      "priority": "medium"
+    },
+    {
+      "id": "US-003",
+      "type": "story",
+      "title": "Subtitle and audio language preference persistence",
+      "description": "As a subscriber who is deaf or hard of hearing, I want my subtitle preferences to be saved to my profile so that I don't have to re-enable subtitles on every title I watch.",
+      "acceptance_criteria": [
+        {
+          "given": "A user sets a subtitle language preference in player settings",
+          "when": "They start watching a new title",
+          "then": "The saved subtitle language is automatically applied if available in that title",
+          "edge_cases": [
+            "Preferred language not available for title — fall back to closest available language, surface notification",
+            "Title has no subtitles — disable subtitle track silently, do not show error"
+          ]
+        },
+        {
+          "given": "A user sets an audio language preference",
+          "when": "They start watching a new title",
+          "then": "The preferred audio language / dub is selected automatically if available",
+          "edge_cases": [
+            "Preferred dub not available — fall back to original language, notify user"
+          ]
+        },
+        {
+          "given": "A user changes subtitle settings mid-episode",
+          "when": "They start a new title",
+          "then": "The mid-episode change is treated as a one-off override, not a preference update — original preference applies to the next title",
+          "edge_cases": [
+            "User explicitly saves the override — update global preference"
+          ]
+        }
+      ],
+      "system_tags": ["accessibility", "profile", "player"],
+      "feature_tags": ["subtitles", "audio-language", "user-preferences"],
+      "source_transcript": "user_research_session.txt",
+      "priority": "high"
+    },
+    {
+      "id": "US-004",
+      "type": "story",
+      "title": "Remove from Continue Watching and 'Not for me' signal",
+      "description": "As a subscriber, I want to remove individual titles from my Continue Watching row so that my home screen only shows content I actually intend to finish.",
+      "acceptance_criteria": [
+        {
+          "given": "A title appears in the user's Continue Watching row",
+          "when": "The user long-presses or opens the context menu on the title",
+          "then": "Options are shown: 'Resume', 'Remove from Continue Watching', 'Not for me'",
+          "edge_cases": [
+            "Accidental tap — undo option available for 5 seconds after dismissal"
+          ]
+        },
+        {
+          "given": "A user selects 'Remove from Continue Watching'",
+          "when": "The action is confirmed",
+          "then": "The title is removed from Continue Watching immediately. It can be found again via Search or Browse.",
+          "edge_cases": [
+            "Title is in a series — offer to remove just the episode or the entire series"
+          ]
+        },
+        {
+          "given": "A user selects 'Not for me'",
+          "when": "The action is recorded",
+          "then": "Title is removed from Continue Watching AND a negative signal is sent to the recommendation engine, reducing probability of the title or similar titles being surfaced",
+          "edge_cases": [
+            "User later searches for the title — it should still be accessible via search"
+          ]
+        },
+        {
+          "given": "Continue Watching row is displayed",
+          "when": "The list is rendered",
+          "then": "Titles are ordered strictly by most recently watched timestamp",
+          "edge_cases": []
+        }
+      ],
+      "system_tags": ["ux", "recommendations", "home-screen"],
+      "feature_tags": ["continue-watching", "personalisation", "dismissal"],
+      "source_transcript": "user_research_session.txt",
+      "priority": "high"
+    },
+    {
+      "id": "US-005",
+      "type": "story",
+      "title": "PIN-protected profile switching and kids screen time limits",
+      "description": "As a parent, I want to protect my main profile with a PIN so that my children cannot switch out of their kids profile and access adult content.",
+      "acceptance_criteria": [
+        {
+          "given": "A user has set up a kids profile",
+          "when": "The kids profile is active",
+          "then": "A visible 'Kids' indicator is displayed in the header throughout the session",
+          "edge_cases": []
+        },
+        {
+          "given": "A child attempts to switch from a kids profile to a protected adult profile",
+          "when": "The profile switch is initiated",
+          "then": "A PIN entry screen is shown. The switch only proceeds on correct PIN entry.",
+          "edge_cases": [
+            "3 failed PIN attempts — lock profile switching for 15 minutes",
+            "User has forgotten PIN — must use account recovery email"
+          ]
+        },
+        {
+          "given": "A parent has set a screen time limit on a kids profile (e.g. 2 hours/day)",
+          "when": "The daily usage limit is reached",
+          "then": "Playback pauses, a message tells the child their viewing time is up, and the profile is locked until the next day",
+          "edge_cases": [
+            "Parent overrides limit — requires PIN confirmation",
+            "Content was mid-episode when limit hit — save position for next day"
+          ]
+        }
+      ],
+      "system_tags": ["auth", "profile", "parental-controls", "ux"],
+      "feature_tags": ["kids-mode", "pin", "screen-time", "profile-switch"],
+      "source_transcript": "user_research_session.txt",
+      "priority": "high"
+    },
+    {
+      "id": "US-006",
+      "type": "story",
+      "title": "Android download resume with DRM segment range requests",
+      "description": "As an Android user, I want interrupted downloads to resume from where they left off so that I don't lose progress when my connection drops.",
+      "acceptance_criteria": [
+        {
+          "given": "A user is downloading a DRM-encrypted title on Android",
+          "when": "The network connection is interrupted",
+          "then": "The download is paused cleanly at the last successfully received segment boundary",
+          "edge_cases": [
+            "Interruption mid-segment — current segment is discarded and will be re-fetched from the segment start on resume"
+          ]
+        },
+        {
+          "given": "A user resumes a paused download",
+          "when": "Network connectivity is restored",
+          "then": "Download resumes from the last successfully downloaded segment using HTTP range requests. No re-download of already received segments.",
+          "edge_cases": [
+            "DRM license has expired during pause — re-provision offline license automatically before resuming download"
+          ]
+        },
+        {
+          "given": "A download is in progress",
+          "when": "The user opens the Downloads screen",
+          "then": "Each in-progress download shows percentage complete, estimated time remaining, and current download speed",
+          "edge_cases": [
+            "Estimate unavailable (e.g. chunked encoding) — show percentage and 'Calculating...' for ETA"
+          ]
+        }
+      ],
+      "system_tags": ["downloads", "drm", "android"],
+      "feature_tags": ["offline-playback", "resume", "download-manager"],
+      "source_transcript": "product_strategy_meeting.txt",
+      "priority": "high"
+    },
+    {
+      "id": "US-007",
+      "type": "story",
+      "title": "Privacy-safe contextual ad signal aggregation for SSAI",
+      "description": "As the ad operations team, I want a signal aggregation layer that passes contextual signals to ad decisioning systems without exposing subscriber PII, so that we can monetise the ad-supported tier while honouring our privacy commitments.",
+      "acceptance_criteria": [
+        {
+          "given": "A subscriber on the ad-supported tier starts watching a title",
+          "when": "An ad decision request is generated",
+          "then": "The signal payload contains: content genre, content rating, episode type (series/movie), time of day, and geography (derived from IP, country-level only). No user ID, no viewing history, no profile data.",
+          "edge_cases": [
+            "Geography cannot be determined — omit geography signal, do not block ad request",
+            "Title has no genre metadata — use 'general' genre signal"
+          ]
+        },
+        {
+          "given": "The ad decision response returns a VAST/VMAP tag",
+          "when": "The SSAI pipeline processes the manifest",
+          "then": "Ad segments are stitched server-side into the content manifest. The client player sees a seamless HLS/DASH stream with no client-side ad SDK calls.",
+          "edge_cases": [
+            "Ad fill rate is 0% — play content uninterrupted, log unfilled impression",
+            "SSAI vendor timeout >2s — fall back to house ad or play content uninterrupted"
+          ]
+        }
+      ],
+      "system_tags": ["ads", "ssai", "privacy", "platform"],
+      "feature_tags": ["monetisation", "ad-signals", "gdpr", "ccpa"],
+      "source_transcript": "product_strategy_meeting.txt",
+      "priority": "medium"
+    },
+    {
+      "id": "US-008",
+      "type": "story",
+      "title": "Watchlist collection management",
+      "description": "As a subscriber with a large watchlist, I want to organise my saved titles into named collections with sorting options so that I can quickly find what I'm in the mood to watch.",
+      "acceptance_criteria": [
+        {
+          "given": "A user opens their Watchlist",
+          "when": "The watchlist has more than 0 titles",
+          "then": "The user can create named collections, move titles between collections, sort by genre / release year / date added, and search within the watchlist",
+          "edge_cases": [
+            "User deletes a collection — titles are moved back to 'All' default collection"
+          ]
+        },
+        {
+          "given": "A user adds a title to their watchlist from the browse or search surface",
+          "when": "The 'Add to Watchlist' action is triggered",
+          "then": "A picker lets the user choose which collection to add it to (or 'All' as default)",
+          "edge_cases": [
+            "Title already in watchlist — show 'Move to...' option instead of 'Add'"
+          ]
+        }
+      ],
+      "system_tags": ["ux", "watchlist", "profile"],
+      "feature_tags": ["collections", "organisation", "browse"],
+      "source_transcript": "user_research_session.txt",
+      "priority": "medium"
+    },
+    {
+      "id": "US-009",
+      "type": "story",
+      "title": "Service-to-service machine token rotation via HashiCorp Vault",
+      "description": "As a security engineer, I want all service-to-service authentication to use short-lived machine tokens automatically rotated by HashiCorp Vault so that manual token sharing is eliminated and SEC-04 compliance is achieved.",
+      "acceptance_criteria": [
+        {
+          "given": "A microservice needs to authenticate to another internal service",
+          "when": "It requests a token",
+          "then": "It obtains a 15-minute machine token from HashiCorp Vault using its service identity. No human intervention required.",
+          "edge_cases": [
+            "Vault is unavailable — services fall back to cached token until expiry; alert ops team",
+            "Service identity cert is expired — service cannot obtain token; fail closed"
+          ]
+        },
+        {
+          "given": "A manual/shared long-lived token is detected in use",
+          "when": "The auth gateway receives the request",
+          "then": "The request is rejected with a 401 and an alert is sent to the security team",
+          "edge_cases": []
+        }
+      ],
+      "system_tags": ["security", "auth", "platform"],
+      "feature_tags": ["vault", "machine-tokens", "sec-04", "zero-trust"],
+      "source_transcript": "engineering_review.txt",
+      "priority": "high"
+    },
+    {
+      "id": "US-010",
+      "type": "story",
+      "title": "Editorial curation tool for content programming team",
+      "description": "As a content curator, I want a tool to build, schedule and track the performance of curated collections (e.g. 'Hidden Gems', 'Mood Picks') so that my editorial choices can be surfaced to subscribers through the app.",
+      "acceptance_criteria": [
+        {
+          "given": "A curator creates a new collection in the editorial tool",
+          "when": "They add titles and set a schedule",
+          "then": "The collection appears on the designated home screen row at the scheduled time and is removed automatically at the end date",
+          "edge_cases": [
+            "Scheduled title is removed from catalogue before publication — flag to curator 48h before go-live"
+          ]
+        },
+        {
+          "given": "A curated collection has been live for 7+ days",
+          "when": "A curator views the collection analytics",
+          "then": "They see: impression count, click-through rate, play rate, average watch time, and titles ranked by performance within the collection",
+          "edge_cases": []
+        }
+      ],
+      "system_tags": ["cms", "recommendations", "editorial"],
+      "feature_tags": ["curation", "home-screen", "scheduling", "analytics"],
+      "source_transcript": "product_strategy_meeting.txt",
+      "priority": "medium"
+    }
+  ],
+
+  "expected_gap_report": {
+    "conflicts": [
+      {
+        "new_request": "US-001 Hardware DRM Uplift (Widevine L1 / FairPlay)",
+        "existing_ticket_id": "QSE-101",
+        "conflict_type": "overlap",
+        "description": "QSE-101 covers DRM Infrastructure Uplift at the epic level. US-001 refines it with specific acceptance criteria around LPA protocol, device attestation, and HA failover. These are complementary but the scope boundary must be agreed to avoid duplication of effort.",
+        "recommendation": "Link US-001 as a child story of QSE-101. QSE-102 (Play Integrity) and QSE-103 (LPA key server) become sub-tasks of US-001."
+      },
+      {
+        "new_request": "US-003 Subtitle and audio language preference persistence",
+        "existing_ticket_id": "QSE-107",
+        "conflict_type": "duplicate",
+        "description": "QSE-107 describes the same feature. US-003 adds more detailed acceptance criteria including the mid-episode override behaviour and fallback language logic.",
+        "recommendation": "Close QSE-107 in favour of US-003, or merge the acceptance criteria into QSE-107 and track US-003 as refinement."
+      },
+      {
+        "new_request": "US-004 Remove from Continue Watching",
+        "existing_ticket_id": "QSE-106",
+        "conflict_type": "overlap",
+        "description": "QSE-106 is a bug report about Continue Watching showing dismissed content. US-004 covers the feature request (remove action + 'Not for me' signal + ordering fix). They should be linked.",
+        "recommendation": "QSE-106 becomes a bug that US-004 resolves. Merge ordering fix into QSE-106 acceptance criteria or close QSE-106 on US-004 completion."
+      },
+      {
+        "new_request": "US-006 Android download resume with DRM segment range requests",
+        "existing_ticket_id": "QSE-115",
+        "conflict_type": "overlap",
+        "description": "QSE-115 identifies the bug (30% corruption rate). US-006 specifies the fix requirements and adds the download progress visibility requirement. Complementary.",
+        "recommendation": "Link US-006 to QSE-115. QSE-115 documents root cause, US-006 defines the acceptance criteria for the fix."
+      }
+    ],
+    "gaps": [
+      {
+        "request": "INT-12: Semantic / enriched search against content descriptions and mood",
+        "gap_type": "missing",
+        "description": "No existing ticket addresses semantic or mood-based search. The current keyword-exact search is a known user pain point (mentioned by 5+ users in research). The metadata enrichment work in QSE-109 is a prerequisite but search itself is not covered.",
+        "suggested_story_ids": []
+      },
+      {
+        "request": "INT-14: Automated CDN failover with Anycast routing",
+        "gap_type": "missing",
+        "description": "Manual CDN failover causing 15–20 min incident delays is documented in the engineering review but no ticket exists. QSE-114 (CMAF migration) is related but distinct.",
+        "suggested_story_ids": []
+      },
+      {
+        "request": "INT-15: Real-time streaming feature pipeline for recommendations (<5 min latency)",
+        "gap_type": "missing",
+        "description": "QSE-108 covers the recommendation model but does not address the underlying event streaming infrastructure migration (batch → Flink streaming). This is a prerequisite for the hybrid model being effective.",
+        "suggested_story_ids": ["US-003"]
+      },
+      {
+        "request": "INT-07 & INT-08: ABR quality preference and mobile data cap",
+        "gap_type": "missing",
+        "description": "QSE-105 covers the quality preference setting but was created before the research session and may not include the specific mobile data cap UX (quality tier picker vs binary toggle). Needs review.",
+        "suggested_story_ids": []
+      },
+      {
+        "request": "INT-04: AB-watermarking vs per-subscriber watermarking architecture decision",
+        "gap_type": "underspecified",
+        "description": "The architecture decision between AB-watermarking and per-subscriber origin watermarking is flagged in the engineering review but not tracked as a story or ADR. The choice affects CDN cost and storage significantly.",
+        "suggested_story_ids": []
+      },
+      {
+        "request": "INT-12: OpenTelemetry distributed tracing",
+        "gap_type": "missing",
+        "description": "QSE-112 exists but is in 'backlog' status with no sprint assignment. Engineering review flagged this as blocking incident response SLA. Should be moved to P1.",
+        "suggested_story_ids": []
+      }
+    ],
+    "coverage_score": 0.71,
+    "summary": "The new stories cover 71% of identified intents from the three source meetings. Key gaps are in search improvement (no story for semantic search), CDN automation (no story for Anycast failover), and the Flink streaming data pipeline. Four conflicts were identified — all are healthy overlaps with existing tickets where the new stories add acceptance criteria detail. The most critical action is to link the DRM stories to the existing epic (QSE-101) and ensure the key server HA requirement (active-active) is explicitly tracked as a prerequisite for L1 launch."
+  },
+
+  "expected_evaluation": {
+    "ac_completeness_pct": 89.0,
+    "feature_tag_f1": 0.87,
+    "conflict_detection_f1": 0.85,
+    "clarity_score": 4.4,
+    "feasibility_score": 4.1,
+    "traceability_score": 4.6,
+    "overall_score": 4.3,
+    "feedback": "Stories are well-grounded in the source transcripts with strong traceability. DRM uplift (US-001) and security token rotation (US-009) have excellent acceptance criteria that reflect the architectural constraints in the wiki. Three areas for improvement: (1) US-007 SSAI story needs an additional AC covering ad skip behaviour control — mentioned in the strategy meeting but absent from the story. (2) US-010 editorial curation tool lacks an AC for role-based access control — only designated curators should have edit access. (3) The 'Not for me' negative signal in US-004 should specify propagation latency — when does it affect the next recommendation refresh?"
+  }
+}

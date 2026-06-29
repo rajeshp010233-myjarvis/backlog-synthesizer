@@ -1,0 +1,102 @@
+QuantumShield Entertainment – User Research Debrief
+Date: 2026-06-05
+Attendees: Riya Shah (UX Lead), Asha Mehta (UX Researcher), Carlos Figueiredo (Product Manager – Playback), Nina Okonkwo (Customer Success Manager)
+
+---
+
+Riya: Asha, walk us through what you found in the last two weeks of research. We spoke to 18 subscribers — mix of premium and ad-supported.
+
+Asha: Right. I'll go theme by theme. First: playback quality switching. Seven out of 18 users mentioned frustration with the adaptive bitrate logic. Specifically, when bandwidth drops temporarily — say someone's on Wi-Fi and the microwave turns on — the player drops quality aggressively and then takes 20 to 30 seconds to recover. Users feel like they're watching a slideshow before it goes back to HD.
+
+Carlos: That's the ABR hysteresis window. Our current setting is conservative — we drop down fast to avoid buffering, but we're too slow to ramp back up. Some players set a shorter ramp-up delay with a lookahead buffer pre-fetch.
+
+Asha: Several users asked specifically for a "minimum quality floor" setting. They'd rather have one short buffer stall than 30 seconds of blurry video. That's a real user preference that our current UI doesn't expose.
+
+Riya: So we need a quality preference setting in the player — something like "Prefer quality over smooth playback" versus "Prefer smooth over quality."
+
+Asha: Yes. And related to that — three users mentioned that when they're on mobile data they wish there was a data-saver mode with a configurable cap. They don't want the app deciding for them, they want to set a maximum quality on mobile and let the ABR work within that cap.
+
+Carlos: We have a data-saver toggle but it just drops to 480p. A proper data cap with choices — 240p, 480p, 720p — would be better.
+
+---
+
+Asha: Second theme: Continue Watching. This was the most emotional topic in the sessions. Six users showed genuine frustration. The biggest complaint is that Continue Watching includes content they deliberately stopped watching and don't want to see again. There's no way to remove something from Continue Watching without hiding it globally from your library.
+
+Nina: We get support tickets about this every week. People watch 10 minutes of a movie, decide they hate it, and then it's front and centre on their home screen forever. They want a dismiss button.
+
+Asha: One user described going through their partner's account settings trying to remove it and giving up. The mental model is: I want to tell the app "I'm done with this, stop suggesting it."
+
+Riya: So a clear "Remove from Continue Watching" action — and probably a "Not for me" signal so it influences future recommendations too.
+
+Asha: Exactly. And Continue Watching order is confusing. Some users thought it was ordered by when they last watched, others thought it was by when they started. It's actually a mix because the algorithm weights recency and engagement probability. Users want predictable recency ordering.
+
+Carlos: I can fix the ordering to strict recency. The algorithm weighting was an experiment that never got rolled back.
+
+---
+
+Asha: Third theme: Watchlist and queue management. Users with large watchlists — over 50 titles — said it becomes unusable. There's no folder or collection concept, no sorting by genre or release year, no search within watchlist. It's just one undifferentiated list.
+
+Riya: We've talked about this internally. The feature exists in competitor apps — folders, smart playlists, sort by genre.
+
+Asha: One user created a whole workaround — they added titles to a "profile" for each genre on their account. Clever but not intended behaviour.
+
+Nina: I can see that pattern in our data too actually. Multiple profile creation with genre names like "Action Riya" or "Docs."
+
+Carlos: So users are hacking profiles as a playlist feature. We should build proper collection management.
+
+---
+
+Asha: Fourth: Subtitle and audio track experience. Eleven users mentioned issues here — so it's the highest-frequency pain point by volume. The most common issues:
+1. Subtitle preferences don't persist. Every new title resets to no subtitles.
+2. Audio language preference doesn't persist either — foreign language speakers have to switch to their preferred dub on every title.
+3. Subtitles are hard to read on bright scenes because there's no background or stroke on the text.
+
+Riya: Subtitle persistence is a settings issue, it should be a saved preference globally with the ability to override per title.
+
+Carlos: We store subtitle choice per playback session. We don't persist it to the user profile. It's a small change that would have massive impact.
+
+Asha: Two users with hearing impairments specifically mentioned that the lack of persistence made the app feel like it didn't respect them as customers. One of them said she'd cancelled her subscription over it and then came back but it's still not fixed.
+
+Riya: That's an accessibility issue, not just a UX issue. We should treat subtitle persistence as a P0 accessibility fix, not a roadmap item.
+
+---
+
+Asha: Fifth theme: Search. Users find our search frustrating for anything other than exact title matches. A user typed "space exploration documentary netflix style" and got zero results. Another typed "sad movies for when you're crying" and got zero results. They want natural language or mood-based search.
+
+Carlos: Our search is keyword exact-match against title, cast, and director fields. We don't index descriptions, themes, or mood tags.
+
+Asha: Competitors are clearly doing semantic or at least keyword-expanded search against descriptions. Users expect it.
+
+Riya: This ties into the metadata enrichment work Divya mentioned — if we had better theme and mood tagging in our content metadata, we could at least do keyword search against richer fields. Semantic search would be the ideal end state.
+
+---
+
+Asha: Sixth: Profiles and kids mode. Four parents specifically. Main issues:
+1. Kids profiles can access the main profile's browsing history and watchlist by switching profiles without any PIN.
+2. There's no content time limit on kids profiles — children watch for hours and parents have no way to set a usage cap.
+3. The UI in kids mode is indistinguishable from adult mode — there's no visual cue that you're in a kids profile, so parents aren't sure the content filters are active.
+
+Nina: The support team gets a lot of "my kid watched something inappropriate" tickets. In most cases the child switched to the main profile.
+
+Riya: So we need profile switching with PIN for protected profiles, optional screen time limits on kids profiles, and a visible indicator in the UI when you're in a restricted profile.
+
+---
+
+Riya: Let me summarise the action items:
+1. ABR quality preference setting — min quality floor, prefer quality vs smooth
+2. Mobile data cap setting with quality tier choices
+3. Remove from Continue Watching / "Not for me" action
+4. Fix Continue Watching ordering to strict recency
+5. Watchlist collection management — folders, sort, filter
+6. Subtitle and audio language persistence as saved profile preference — treat as accessibility P0
+7. Improve subtitle readability — background or stroke options
+8. Semantic / enriched search against descriptions and mood tags
+9. Profile switching PIN for protected/kids profiles
+10. Screen time limits on kids profiles
+11. Visual indicator when in kids/restricted profile
+
+Carlos: That's a long list. Subtitle persistence and Continue Watching cleanup are low-effort high-impact. Should go in the next sprint.
+
+Asha: Agreed. The DRM and download stuff from strategy is important but these user experience issues are driving passive churn — people just stop coming back without cancelling.
+
+Riya: Good point. We need to make sure both sets of work are represented in the backlog.

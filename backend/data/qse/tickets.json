@@ -1,0 +1,122 @@
+[
+  {
+    "id": "QSE-101",
+    "type": "epic",
+    "title": "DRM Infrastructure Uplift",
+    "description": "Upgrade content protection from Widevine L3 to L1 hardware-backed DRM to unlock studio premium catalogue licensing. Covers backend key server, device attestation, and mobile SDK certification.",
+    "status": "in-progress",
+    "tags": ["drm", "security", "platform", "p0"]
+  },
+  {
+    "id": "QSE-102",
+    "type": "story",
+    "title": "Integrate Google Play Integrity API for Android device attestation",
+    "description": "Implement Android device attestation using Google Play Integrity API to verify hardware TEE support before issuing Widevine L1 licenses.",
+    "status": "in-progress",
+    "tags": ["drm", "android", "attestation"]
+  },
+  {
+    "id": "QSE-103",
+    "type": "story",
+    "title": "Upgrade key server to support Google License Proxy Auth (LPA) protocol",
+    "description": "The existing DRMtoday-based key server must be updated to handle LPA protocol required for Widevine L1. Includes active-active HA deployment across two AWS regions.",
+    "status": "open",
+    "tags": ["drm", "backend", "key-server", "high-availability"]
+  },
+  {
+    "id": "QSE-104",
+    "type": "task",
+    "title": "Apple FairPlay KSM certification submission",
+    "description": "Submit Apple Key Server Module integration for FairPlay L1 certification. Estimated Apple review time 4–6 weeks.",
+    "status": "open",
+    "tags": ["drm", "ios", "fairplay", "certification"]
+  },
+  {
+    "id": "QSE-105",
+    "type": "story",
+    "title": "ABR player quality preference setting",
+    "description": "Add user-facing quality preference to the video player: 'Prefer quality (allow brief buffers)' vs 'Prefer smooth (allow lower quality)'. Expose minimum quality floor setting.",
+    "status": "open",
+    "tags": ["player", "ux", "abr", "quality"]
+  },
+  {
+    "id": "QSE-106",
+    "type": "bug",
+    "title": "Continue Watching row shows titles user has explicitly dismissed",
+    "description": "Users who stop watching a title cannot remove it from Continue Watching. The row shows stale and unwanted content, causing UX frustration and passive churn.",
+    "status": "open",
+    "tags": ["continue-watching", "ux", "home-screen"]
+  },
+  {
+    "id": "QSE-107",
+    "type": "story",
+    "title": "Subtitle and audio language preference persistence",
+    "description": "Save subtitle language, audio language, and subtitle styling preferences at the profile level. Currently resets to default on every new title.",
+    "status": "open",
+    "tags": ["subtitles", "accessibility", "profile", "p0"]
+  },
+  {
+    "id": "QSE-108",
+    "type": "epic",
+    "title": "Hybrid Recommendation Engine",
+    "description": "Replace pure collaborative filtering with a hybrid model combining content-based features (metadata, mood, theme) and collaborative signals. Addresses cold-start problem for long-tail catalogue.",
+    "status": "backlog",
+    "tags": ["recommendations", "ml", "personalisation", "data-platform"]
+  },
+  {
+    "id": "QSE-109",
+    "type": "story",
+    "title": "AI-powered content metadata enrichment pipeline",
+    "description": "Build batch enrichment pipeline using Claude API to generate standardised genre, mood, and thematic keyword tags from title synopsis, reviews, and cast/crew data. Target: 60,000 titles initial batch.",
+    "status": "backlog",
+    "tags": ["metadata", "ai", "recommendations", "content"]
+  },
+  {
+    "id": "QSE-110",
+    "type": "story",
+    "title": "API gateway rate limiting and circuit breakers",
+    "description": "Implement per-consumer-key rate limiting and circuit breaker patterns on the partner API gateway. Required before Q3 partner expansion (5 new partners onboarding).",
+    "status": "open",
+    "tags": ["api", "stability", "rate-limiting", "platform"]
+  },
+  {
+    "id": "QSE-111",
+    "type": "story",
+    "title": "Service-to-service token rotation with HashiCorp Vault",
+    "description": "Replace manually shared long-lived tokens with automated short-lived machine tokens (15-min lifetime) using HashiCorp Vault. SEC-04 compliance required.",
+    "status": "open",
+    "tags": ["security", "auth", "vault", "p0"]
+  },
+  {
+    "id": "QSE-112",
+    "type": "story",
+    "title": "OpenTelemetry distributed tracing across microservices",
+    "description": "Instrument all services with OpenTelemetry SDK. Single trace view in Grafana Tempo replacing 5 separate Kibana dashboards. Required for incident response SLA.",
+    "status": "backlog",
+    "tags": ["observability", "tracing", "platform", "devops"]
+  },
+  {
+    "id": "QSE-113",
+    "type": "epic",
+    "title": "SSAI Pipeline for Ad-Supported Tier",
+    "description": "Build Server-Side Ad Insertion pipeline for Q3 ad-supported tier launch. Evaluate AWS Elemental MediaTailor vs Yospace. Contextual ad signals only (no PII to ad networks).",
+    "status": "backlog",
+    "tags": ["ads", "ssai", "monetisation", "q3"]
+  },
+  {
+    "id": "QSE-114",
+    "type": "story",
+    "title": "CMAF packaging migration for VOD content",
+    "description": "Migrate VOD transcoding pipeline from dual HLS+DASH outputs to CMAF. Estimated 45% storage reduction (12PB → ~6.5PB). Requires player SDK updates for older devices.",
+    "status": "backlog",
+    "tags": ["streaming", "cmaf", "transcoding", "infrastructure"]
+  },
+  {
+    "id": "QSE-115",
+    "type": "bug",
+    "title": "Download resume failure on Android (30% corruption rate)",
+    "description": "Offline download on Android fails to resume after network interruption, corrupting ~30% of partial downloads. Root cause: download chunk manager does not support range requests for DRM-encrypted segments.",
+    "status": "open",
+    "tags": ["downloads", "android", "bug", "drm"]
+  }
+]

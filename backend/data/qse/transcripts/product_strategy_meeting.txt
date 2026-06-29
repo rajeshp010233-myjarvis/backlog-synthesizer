@@ -1,0 +1,95 @@
+QuantumShield Entertainment – Product Strategy Meeting
+Date: 2026-06-10
+Attendees: Priya Nair (CPO), Marcus Webb (Head of Content), Divya Rangan (VP Engineering), Tom Alessi (Head of Partnerships), Riya Shah (UX Lead)
+
+---
+
+Priya: Let's start with the DRM situation. Tom, you mentioned two major studios are blocking us because of our current content protection tier?
+
+Tom: Correct. Warner and Paramount both flagged us during due diligence. Their content security auditors say our current Widevine L3-only setup is insufficient for 4K HDR titles. They need L1 hardware-backed decryption before they'll license premium catalogue to us. Without that, we can't get Spider-Man, the DC catalogue, or anything above 1080p from those two.
+
+Divya: We've been investigating this. Hardware-backed DRM requires device attestation — we need a key server integration with Google's License Proxy Auth. The backend work isn't trivial, but more importantly the mobile SDKs need updating. iOS and Android both need to go through a certification process with Widevine and FairPlay.
+
+Priya: What's the timeline if we start now?
+
+Divya: Roughly 14 weeks end to end if we parallelize the mobile and backend tracks. The bottleneck is the Apple FairPlay certification — Apple takes 4 to 6 weeks just to review the integration.
+
+Marcus: And the content side — I can't start licensing negotiations with studios until we have a clear DRM roadmap I can put in front of them. Right now our catalogue is roughly 60,000 titles, but 80 percent of the high-value premium content requires hardware-level protection.
+
+Priya: OK. So DRM uplift is a P0. Divya, I want a proper breakdown — backend license server changes, device attestation flow, SDK changes for iOS and Android, and the certification requirements.
+
+Divya: Will do. I should also flag that any DRM changes need to be integrated into our watermarking pipeline. We use forensic watermarking on premium content to identify the source of leaks. The two systems have to be coordinated — if we change the decryption flow, the watermark injection point moves.
+
+Priya: Good catch. That needs to be in scope. Riya, from a user perspective — any concern about DRM impacting the experience?
+
+Riya: One thing we hear repeatedly in user research is confusion about why content isn't available on certain devices. Users don't understand that their old smart TV doesn't support the hardware DRM. We need better device compatibility messaging — either during device setup or at the point of playback failure. Right now the error is just a generic "content not available" which drives support tickets.
+
+Priya: That's a real gap. Let's make sure we surface device capability information in the player and during account setup. Can we show users which of their registered devices support 4K?
+
+Riya: Absolutely. We have the device registry already, we just don't expose it in any meaningful way to users.
+
+---
+
+Marcus: Moving to content personalisation. I want to revisit our recommendation engine. Our current approach is collaborative filtering, which works fine for mainstream content, but we're terrible at surfacing niche catalogue — documentaries, foreign films, classic cinema. Our long-tail content has really poor discovery.
+
+Priya: What are the numbers?
+
+Marcus: The bottom 40 percent of our catalogue gets under 0.1 percent of total watch time. And we know from subscriber surveys that people who discover those titles become our most engaged and least churned users.
+
+Divya: The problem is collaborative filtering needs critical mass of user behaviour. If only 200 people have watched a foreign film, the model has almost no signal. We've been looking at content-based features — metadata, genre taxonomy, themes extracted from transcripts and reviews — to bootstrap recommendations for cold-start titles.
+
+Marcus: Exactly. We need a hybrid approach. Use content metadata features for cold-start and underserved catalogue, then blend in collaborative signals once we have enough behavioural data.
+
+Priya: Riya, is there a UX piece here too?
+
+Riya: Yes. Right now we have one recommendations row on the home screen. Users scroll past it fast because it always surfaces the same mainstream titles they've already seen. We need a more curated, editorially-led approach for niche content — "Hidden Gems" rows, mood-based browsing. The editorial team at Marcus's side could manually curate playlists that feed into the recommendation mix.
+
+Marcus: We'd love that. We have a team of curators who basically have no channel into the product right now. They send us Slack messages saying "can you promote this title" and then nothing happens.
+
+Priya: So we need a content curation tool — something the editorial team can use to build and schedule curated collections, with visibility into how they perform.
+
+---
+
+Divya: I want to raise the download experience while we're here. We allow offline downloads but the implementation is fragile. On Android specifically we're seeing a lot of failed download-resume scenarios — if the network drops mid-download, the download corrupts about 30 percent of the time.
+
+Priya: Thirty percent is terrible. What's causing it?
+
+Divya: Our download manager doesn't support range requests for DRM-encrypted segments properly. It re-fetches from the beginning instead of resuming. Fix requires rewriting the download chunk manager. Also, the license for offline playback is tied to device attestation, so with the DRM uplift, we need to make sure offline licenses are re-provisioned correctly post-upgrade.
+
+Riya: I'd add that users have no visibility into the download state — no estimated time, no per-title progress, no indication of why a download failed. The support team gets tickets every week from people who can't figure out why their downloaded content disappeared.
+
+Priya: We need proper download management UX — progress tracking, pause/resume, storage management. iOS and Android.
+
+---
+
+Tom: One more thing — Advertising. We're launching an ad-supported tier in Q3. We've signed with two ad networks but we don't have a proper SSAI pipeline yet. Right now our pre-roll ads are just client-side with a video.js plugin. For the premium inventory we're selling — mid-roll in premium shows — we need server-side ad insertion so the ad experience is seamless and skipping is controlled on our end.
+
+Priya: That's a big lift. Divya?
+
+Divya: SSAI requires us to transcode and package our content alongside ad markers in the manifest. We'll need to integrate with an SSAI vendor — most likely AWS Elemental MediaTailor or Yospace. We also need to think about ad targeting signals — right now we have no way to pass subscriber attributes to the ad decisioning system.
+
+Tom: The ad networks want content genre signals and geography at minimum. We can derive genre from our metadata and geography from IP. But we need to make sure this doesn't conflict with our privacy policy — we made strong promises to subscribers about not sharing viewing data with third parties.
+
+Priya: OK so there's a privacy-safe ad signal architecture needed. We can pass contextual signals — content genre, episode type, time of day — without passing user-level identifiers.
+
+Divya: That's doable. We can build a signal aggregation layer that strips PII before passing to the ad decisioning system.
+
+---
+
+Priya: Quick recap of what I'm hearing as priorities:
+1. DRM uplift to Widevine L1 / FairPlay — P0, blocks studio partnerships
+2. Device compatibility visibility in UX — P1, reduces support tickets
+3. Hybrid recommendation engine — P1, improves long-tail discovery
+4. Editorial curation tool — P2, enables curators to feed the product
+5. Download manager rewrite with proper resume support — P1
+6. SSAI pipeline for ad-supported tier — P2, Q3 launch dependency
+
+Any objections?
+
+Tom: None from partnerships. The DRM thing is genuinely blocking revenue.
+
+Marcus: Agreed on the priorities.
+
+Divya: Download manager and DRM are tightly coupled so I'd actually treat them as one initiative with two workstreams.
+
+Priya: Good. Let's structure it that way. Thanks everyone.

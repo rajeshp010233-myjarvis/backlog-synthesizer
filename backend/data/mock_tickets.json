@@ -1,0 +1,42 @@
+[
+  {
+    "id": "PROJ-1",
+    "type": "story",
+    "title": "User authentication via SSO",
+    "description": "Implement SAML-based SSO for enterprise users",
+    "status": "in-progress",
+    "tags": ["auth", "enterprise"]
+  },
+  {
+    "id": "PROJ-2",
+    "type": "bug",
+    "title": "Dashboard loads slowly for large datasets",
+    "description": "Performance degradation when dataset exceeds 10k rows",
+    "status": "open",
+    "tags": ["performance", "dashboard"]
+  },
+  {
+    "id": "PROJ-3",
+    "type": "epic",
+    "title": "Reporting Module",
+    "description": "Build reporting and export capabilities including PDF export and scheduled reports",
+    "status": "backlog",
+    "tags": ["reporting", "export"]
+  },
+  {
+    "id": "PROJ-4",
+    "type": "story",
+    "title": "Role-based access control",
+    "description": "Implement RBAC so admins can assign viewer/editor/admin roles",
+    "status": "open",
+    "tags": ["auth", "rbac", "admin"]
+  },
+  {
+    "id": "PROJ-5",
+    "type": "task",
+    "title": "API rate limiting",
+    "description": "Add rate limiting to public API endpoints — 100 req/min per token",
+    "status": "backlog",
+    "tags": ["api", "security"]
+  }
+]

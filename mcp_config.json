@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "backlog-synthesizer": {
+      "url": "http://localhost:8002/sse",
+      "description": "Backlog Synthesizer – JIRA/GitHub resources + pipeline tools"
+    }
+  }
+}
